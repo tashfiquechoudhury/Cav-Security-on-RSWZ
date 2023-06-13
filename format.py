@@ -25,4 +25,3 @@ class MathTextSciFormatter(mticker.Formatter):
         else:
             s = r'%s%s' % (significand, exponent)
         return "${}$".format(s)
-
