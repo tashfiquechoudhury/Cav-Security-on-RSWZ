@@ -1,10 +1,12 @@
 import matplotlib.ticker as mticker
+from matplotlib.ticker import MaxNLocator
 
 
 class MathTextSciFormatter(mticker.Formatter):
     """
     A class that will help format the values of the axes for the graphs using LaTeX.
     """
+
     def __init__(self, fmt="%1.2e"):
         self.fmt = fmt
 
@@ -23,3 +25,4 @@ class MathTextSciFormatter(mticker.Formatter):
         else:
             s = r'%s%s' % (significand, exponent)
         return "${}$".format(s)
+
