@@ -4,10 +4,6 @@ import matplotlib.pyplot as plt
 import format
 
 
-# TODO: Design an algorithm that will vary the acceleration based on
-#  the current time t to represent a vehicle's acceleration and deceleration
-#  as if it were driving. (speeding up and slowing down, accelerate, and decelerate, respectively)
-
 # TODO: Create another trajectory function that will map 2D instead of 1D (that
 #  means, we need velocity_x, velocity_y, acceleration_x, acceleration_y,
 #  position_x, and position_y)
@@ -19,11 +15,13 @@ def generate_trajectory_1D(total_duration, timestep, init_velocity):
     Dataframe.
 
     Format:
-                position    velocity    acceleration    timestep
-                                                            1
-                                                            2
-                                                            ...
-                                                            N
+                position    velocity    acceleration    time
+                                                         0
+                                                         tau
+                                                         2tau
+                                                         3tau
+                                                         ...
+                                                         N
 
     where N = total_duration
 
@@ -31,33 +29,42 @@ def generate_trajectory_1D(total_duration, timestep, init_velocity):
     :param timestep:
     :param init_velocity:
     """
-    velocities = [init_velocity]
-    accelerations = [1]
-    positions = [0]
-    timesteps = []
+    # Initialize velocity, acceleration, position, and time arrays.
     tau = timestep
+    N = int(total_duration / tau) + 1
+    v_x = np.zeros(N, dtype=np.float32)
+    a_x = np.zeros(N, dtype=np.float32)
+    pos_x = np.zeros(N, dtype=np.float32)
+    t = np.zeros(N, dtype=np.float32)
 
-    for t in range(1, total_duration):
-        position = positions[t - 1] + t * velocities[t - 1] + (0.5 * accelerations[t - 1] * (t ** 2))
-        velocity = velocities[t - 1] + t * accelerations[t - 1]
-        acceleration = accelerations[t - 1]
+    # Initialize initial velocity
+    v_x[0] = init_velocity
 
-        positions.append(position)
-        velocities.append(velocity)
-        timesteps.append(t)
+    # Simulate trajectory of CAV
+    for i in range(1, N):
+        pos_x[i] = pos_x[i - 1] + t[i - 1] * v_x[i - 1] + (0.5 * a_x[i - 1] * (t[i - 1] ** 2))
+        v_x[i] = v_x[i - 1] + t[i - 1] * a_x[i - 1]
+        t[i] = t[i - 1] + tau
 
-        if t % 10 == 0:
-            acceleration = accelerations[t - 1] + 0.5
-            accelerations.append(acceleration)
+        # TODO: Create a more complex algorithm for acceleration.
+        # Assume CAV is accelerating for a quarter of the trip, then decelerating for a quarter of the trip.
+        # Then accelerating for the rest of the trip.
+        if i < N/4:
+            a_x[i] = a_x[i - 1] + 0.0001
+        elif i < N/2:
+            a_x[i] = a_x[i - 1] - 0.00005
         else:
-            accelerations.append(acceleration)
+            a_x[i] = a_x[i - 1] + 0.0001
 
-    data = np.array(list(zip(positions, velocities, accelerations, timesteps)), dtype=np.int32)
-    dataframe = pd.DataFrame(data, columns=['position', 'velocity', 'acceleration', 'timestep'])
+    # Aggregate and combine data into one dataframe.
+    data = np.column_stack((t, pos_x, v_x, a_x))
+    dataframe = pd.DataFrame(data, columns=['time', 'position', 'velocity', 'acceleration'])
+    print(dataframe)
     return dataframe
 
 
 # This function will display the trajectory of the CAV in 1D (x-coordinate)
+# TODO: Fix plot axes
 def plot_trajectory_1D(dataframe):
     """
     Displays and visualizes the trajectory of the CAV given a Pandas DataFrame.
@@ -65,34 +72,31 @@ def plot_trajectory_1D(dataframe):
     :param dataframe:
     """
     # Acceleration
-    dataframe.plot(kind='scatter', x='timestep', y='acceleration', color='green')
+    dataframe.plot(kind='scatter', x='time', y='acceleration', color='green')
     plt.gca().yaxis.set_major_formatter(format.MathTextSciFormatter("%1.2e"))
     plt.gca().xaxis.set_major_locator(format.MaxNLocator(integer=True))
-    plt.xlabel("Time step", size=15)
+    plt.xlabel("Time (s)", size=15)
     plt.ylabel("Acceleration (m/s^2)", size=15)
     plt.title("Acceleration of CAV", size=20)
 
     plt.show()
 
     # Position
-    dataframe.plot(kind='scatter', x='timestep', y='position', color='green')
+    dataframe.plot(kind='scatter', x='time', y='position', color='green')
     plt.gca().yaxis.set_major_formatter(format.MathTextSciFormatter("%1.2e"))
     plt.gca().xaxis.set_major_locator(format.MaxNLocator(integer=True))
-    plt.xlabel("Time step", size=15)
+    plt.xlabel("Time (s)", size=15)
     plt.ylabel("Position (x-coordinate)", size=15)
     plt.title("Position of CAV", size=20)
 
     plt.show()
 
     # Velocity
-    dataframe.plot(kind='scatter', x='timestep', y='velocity', color='green')
+    dataframe.plot(kind='scatter', x='time', y='velocity', color='green')
     plt.gca().yaxis.set_major_formatter(format.MathTextSciFormatter("%1.2e"))
     plt.gca().xaxis.set_major_locator(format.MaxNLocator(integer=True))
-    plt.xlabel("Time step", size=15)
+    plt.xlabel("Time (s)", size=15)
     plt.ylabel("Velocity (m/s)", size=15)
     plt.title("Velocity of CAV", size=20)
 
     plt.show()
-
-
-plot_trajectory_1D(generate_trajectory_1D(20, 1, 0.5))
