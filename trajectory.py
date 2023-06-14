@@ -12,16 +12,16 @@ import format
 def generate_trajectory_1D(total_duration, timestep, init_velocity):
     """
     Returns the velocity, position, and acceleration of the CAV at each timestep up until total_duration as a Pandas
-    Dataframe.
+    Dataframe in 1D.
 
     Format:
-                position    velocity    acceleration    time
-                                                         0
-                                                         tau
-                                                         2tau
-                                                         3tau
-                                                         ...
-                                                         N
+            time    position    velocity    acceleration
+             0
+             tau
+             2tau
+             3tau
+             ...
+             N
 
     where N = total_duration
 
@@ -32,10 +32,10 @@ def generate_trajectory_1D(total_duration, timestep, init_velocity):
     # Initialize velocity, acceleration, position, and time arrays.
     tau = timestep
     N = int(total_duration / tau) + 1
+    t = np.zeros(N, dtype=np.float32)
+    pos_x = np.zeros(N, dtype=np.float32)
     v_x = np.zeros(N, dtype=np.float32)
     a_x = np.zeros(N, dtype=np.float32)
-    pos_x = np.zeros(N, dtype=np.float32)
-    t = np.zeros(N, dtype=np.float32)
 
     # Initialize initial velocity
     v_x[0] = init_velocity
@@ -49,9 +49,9 @@ def generate_trajectory_1D(total_duration, timestep, init_velocity):
         # TODO: Create a more complex algorithm for acceleration.
         # Assume CAV is accelerating for a quarter of the trip, then decelerating for a quarter of the trip.
         # Then accelerating for the rest of the trip.
-        if i < N/4:
+        if i < N / 4:
             a_x[i] = a_x[i - 1] + 0.0001
-        elif i < N/2:
+        elif i < N / 2:
             a_x[i] = a_x[i - 1] - 0.00005
         else:
             a_x[i] = a_x[i - 1] + 0.0001
@@ -59,7 +59,67 @@ def generate_trajectory_1D(total_duration, timestep, init_velocity):
     # Aggregate and combine data into one dataframe.
     data = np.column_stack((t, pos_x, v_x, a_x))
     dataframe = pd.DataFrame(data, columns=['time', 'position', 'velocity', 'acceleration'])
-    print(dataframe)
+    return dataframe
+
+
+def generate_trajectory_2D(total_duration, timestep, init_velocity_x, init_velocity_y):
+    """
+    Returns the velocity, position, and acceleration of the CAV at each timestep up until total_duration as a Pandas
+    Dataframe in 2D.
+
+    Format:
+            time    x-position  y-position  x-velocity  y-velocity  x-acceleration  y-acceleration
+             0
+             tau
+             2tau
+             3tau
+             ...
+             N
+
+    where N = total_duration
+
+    :param total_duration:
+    :param timestep:
+    :param init_velocity_x:
+    :param init_velocity_y:
+    """
+    # Initialize velocity, acceleration, position, and time arrays.
+    tau = timestep
+    N = int(total_duration / tau) + 1
+    t = np.zeros(N, dtype=np.float32)
+    pos_x = np.zeros(N, dtype=np.float32)
+    pos_y = np.zeros(N, dtype=np.float32)
+    v_x = np.zeros(N, dtype=np.float32)
+    v_y = np.zeros(N, dtype=np.float32)
+    a_x = np.zeros(N, dtype=np.float32)
+    a_y = np.zeros(N, dtype=np.float32)
+
+    # Initialize initial velocity
+    v_x[0] = init_velocity_x
+    v_y[0] = init_velocity_y
+
+    # Simulate trajectory of CAV
+    for i in range(1, N):
+        pos_x[i] = pos_x[i - 1] + t[i - 1] * v_x[i - 1] + (0.5 * a_x[i - 1] * (t[i - 1] ** 2))
+        pos_y[i] = pos_y[i - 1] + t[i - 1] * v_y[i - 1] + (0.5 * a_y[i - 1] * (t[i - 1] ** 2))
+        v_x[i] = v_x[i - 1] + t[i - 1] * a_x[i - 1]
+        v_y[i] = v_y[i - 1] + t[i - 1] * a_y[i - 1]
+        t[i] = t[i - 1] + tau
+
+        # TODO: Create a more complex algorithm for acceleration.
+        # Assume CAV is accelerating for a quarter of the trip, then decelerating for a quarter of the trip.
+        # Then accelerating for the rest of the trip.
+        if i < N / 4:
+            a_x[i] = a_x[i - 1] + 0.0001
+        elif i < N / 2:
+            a_x[i] = a_x[i - 1] - 0.00005
+        else:
+            a_x[i] = a_x[i - 1] + 0.0001
+
+    # Aggregate and combine data into one dataframe.
+    data = np.column_stack((t, pos_x, pos_y, v_x, v_y, a_x, a_y))
+    dataframe = pd.DataFrame(data, columns=['time', 'x-position', 'y-position', 'x-velocity',
+                                            'y-velocity', 'x-acceleration', 'y-acceleration'])
     return dataframe
 
 
