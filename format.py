@@ -1,5 +1,5 @@
+import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from matplotlib.ticker import MaxNLocator
 
 
 class MathTextSciFormatter(mticker.Formatter):
@@ -25,3 +25,42 @@ class MathTextSciFormatter(mticker.Formatter):
         else:
             s = r'%s%s' % (significand, exponent)
         return "${}$".format(s)
+
+
+# This function will display the trajectory of the CAV in 1D (x-coordinate)
+# TODO: Fix plot axes
+def plot_trajectory_1D(dataframe):
+    """
+    Displays and visualizes the trajectory of the CAV given a Pandas DataFrame.
+
+    :param dataframe:
+    """
+    # Acceleration
+    dataframe.plot(kind='scatter', x='time', y='acceleration', color='green')
+    plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
+    plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    plt.xlabel("Time (s)", size=15)
+    plt.ylabel("Acceleration (m/s^2)", size=15)
+    plt.title("Acceleration of CAV", size=20)
+
+    plt.show()
+
+    # Position
+    dataframe.plot(kind='scatter', x='time', y='position', color='green')
+    plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
+    plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    plt.xlabel("Time (s)", size=15)
+    plt.ylabel("Position (x-coordinate)", size=15)
+    plt.title("Position of CAV", size=20)
+
+    plt.show()
+
+    # Velocity
+    dataframe.plot(kind='scatter', x='time', y='velocity', color='green')
+    plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
+    plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    plt.xlabel("Time (s)", size=15)
+    plt.ylabel("Velocity (m/s)", size=15)
+    plt.title("Velocity of CAV", size=20)
+
+    plt.show()
