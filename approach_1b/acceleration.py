@@ -40,11 +40,12 @@ class Acceleration:
 
         # PSEUDORANDOM IF NOT NEAR ANY BOUNDARY CONDITIONS:
 
-        if self.max_v - v <= 10:  # Near the max velocity, should reduce.
+        if self.max_v - v <= 10:  # Near the max velocity, should reduce quickly.
             action = self.choose_acceleration_method(3)
             if self.max_v <= 5:
                 action = self.choose_acceleration_method(3)
                 a = action(total_duration, t, a, v)
+
 
         return a
 
