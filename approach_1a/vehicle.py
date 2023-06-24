@@ -5,10 +5,10 @@ import random
 
 class Vehicle:
 
-    def __init__(self, max_velocity, max_acceleration):
+    def __init__(self, max_velocity, max_acceleration, seed):
         self.max_v_x = max_velocity
         self.max_a_x = max_acceleration
-        random.seed(max_velocity)
+        random.seed(seed)
 
     def generate_trajectory_1D(self, total_duration, timestep, init_velocity):
         """
