@@ -44,17 +44,26 @@ class Vehicle:
         # Our acceleration phase should be last from t = 1 up until t = [N/5, N/4]
         # At most, 25% of the trip is the vehicle accelerating
         # ACCELERATION PHASE:
-        acc_t = int(r.uniform((len(t) - 1) / 5, (len(t) - 1) / 4))
-        acc_duration = duration / (acc_t + 1)
+        acc_t_start = 1
+        acc_t_end = (int(r.uniform((len(t) - 1) / 5, (len(t) - 1) / 4))) + 1
+        acc_duration = duration / acc_t_end
         acc = self.acc(int(r.uniform(1, 4)), v_init)
-        for i in range(1, acc_t + 1):
-            a[i] = acc(i, acc_duration)
+        for i in range(acc_t_start, acc_t_end):
+            a[i] = acc(curr_t=i, duration=acc_duration)
             x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i - 1] * (tau ** 2))
             v[i] = v[i - 1] + tau * a[i]
             t[i] = t[i - 1] + tau
 
         # Moving in constant velocity now.
         # RANDOM TRAJECTORY PHASE:
+        ran_t_start = acc_t_end
+        ran_t_end = 1
+
+        # Given the current velocity we're traveling and the time remaining from the trip, we need to calculate
+        # the value of acceleration to decelerate our current velocity such that it reaches 0 at the end.
+        # We will be decelerating the last 10th of the trip
+        # DECELERATION PHASE:
+        return a
 
     def acc(self, choice, v_init):
         """
@@ -70,47 +79,44 @@ class Vehicle:
         v_fast = int(r.uniform((3 * v_des) / 4, (7 * v_des) / 8))  # v_fast = [(3/4) * v_des, (7/8) * v_des]
         v_slow = int(r.uniform(v_des / 4, v_des / 2))  # v_slow = [(1/4) * v_des, (1/2) * v_des]
 
-        def acc_quickly_then_slowly(curr_t, duration):
+        def acc_quickly_then_slowly(**params):
             """
             A function that will simulate the acceleration of a car speeding up quickly then speeding up slowly. First,
             the car will speed up quickly for half the duration then speed up slowly for the rest of the duration.
-
-            :param curr_t:
-            :param duration:
             """
             # We want to a_fast to reach some v s.t. v <= max_v
-            a_fast = (v_fast - v_init) / (duration / 2)
-            a_slow = (v_des - v_fast) / (duration / 2)
-            if curr_t <= duration / 2:
+            a_fast = (v_fast - v_init) / (params['duration'] / 2)
+            a_slow = (v_des - v_fast) / (params['duration'] / 2)
+            if params['curr_t'] <= params['duration'] / 2:
                 return a_fast
             else:
                 return a_slow
 
-        def acc_slowly_then_quickly(curr_t, duration):
+        def acc_slowly_then_quickly(**params):
             """
             A function that will simulate the acceleration of a car speeding up slowly then speeding up quickly. First,
             the car will speed up slowly for half of the duration then speed up quickly for the rest of the duration.
             """
-            a_slow = (v_slow - v_init) / (duration / 2)
-            a_fast = (v_des - v_slow) / (duration / 2)
-            if curr_t <= duration / 2:
+            a_slow = (v_slow - v_init) / (params['duration'] / 2)
+            a_fast = (v_des - v_slow) / (params['duration'] / 2)
+            if params['curr_t'] <= params['duration'] / 2:
                 return a_slow
             else:
                 return a_fast
 
-        def acc_quickly(curr_t, duration):
+        def acc_quickly(**params):
             """
             A function that will simulate the acceleration of a car speeding up quickly. The car will be speeding up
             quickly for the entire duration of the acceleration phase.
             """
-            return (v_fast - v_init) / duration
+            return (v_fast - v_init) / params['duration']
 
-        def acc_slowly(curr_t, duration):
+        def acc_slowly(**params):
             """
             A function that will simulate the acceleration of a car speeding up slowly. The car will be speeding up
             slowly for the entire duration of the acceleration phase.
             """
-            return (v_slow - v_init) / duration
+            return (v_slow - v_init) / params['duration']
 
         if choice == 1:
             return acc_quickly_then_slowly
