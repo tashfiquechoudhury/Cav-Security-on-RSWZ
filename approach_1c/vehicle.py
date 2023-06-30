@@ -9,28 +9,18 @@ class Vehicle:
     based on various parameters.
     """
 
-    def __init__(self, max_v, max_a, model, make):
-        self.max_v = max_v
-        self.max_a = max_a
+    def __init__(self, v_max, a_max, model, make):
+        self.max_v = v_max
+        self.max_a = a_max
         self.model = model
         self.make = make
 
-    def trajectory(self, init_v, timestep, duration, seed):
+    def trajectory(self, v_init, timestep, duration, seed):
         """
         Returns the velocity, position, and acceleration of the CAV at each timestep up until duration as three numpy
         arrays.
 
-        Format:
-            time    position    velocity    acceleration\n
-            0\n
-            tau\n
-            2tau\n
-            3tau\n
-            ...\n
-            N\n
-        where N = total_duration
-
-        :param init_v:
+        :param v_init:
         :param timestep:
         :param duration:
         :param seed:
@@ -45,8 +35,8 @@ class Vehicle:
         a = np.zeros(N, dtype=np.float32)
         r.seed(seed)
 
-        # Initialize initial velocity
-        v[0] = init_v
+        # Initialize entry 0 of velocity array with init_v
+        v[0] = v_init
 
         # Break down our trajectory into three phases:
         # acceleration phase, random trajectory phase, and deceleration phase.
@@ -54,29 +44,33 @@ class Vehicle:
         # Our acceleration phase should be last from t = 1 up until t = [N/5, N/4]
         # At most, 25% of the trip is the vehicle accelerating
         # ACCELERATION PHASE:
-        t_1 = int(r.uniform((1 / 5) * len(t), (1 / 4) * len(t)))
-        choice = int(r.uniform(1, 4))
-        accelerator = self.accelerator(choice, init_v)
-        for i in range(1, t_1 + 1):
-            x[i] = x[i - 1] + t[i - 1] * v[i - 1] + (0.5 * a[i - 1] * (t[i - 1] ** 2))
-            v[i] = v[i - 1] + t[i - 1] * a[i - 1]
-            a[i] = accelerator(i, t_1)
+        acc_t = int(r.uniform((len(t) - 1) / 5, (len(t) - 1) / 4))
+        acc_duration = duration / (acc_t + 1)
+        acc = self.acc(int(r.uniform(1, 4)), v_init)
+        for i in range(1, acc_t + 1):
+            a[i] = acc(i, acc_duration)
+            x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i - 1] * (tau ** 2))
+            v[i] = v[i - 1] + tau * a[i]
+            t[i] = t[i - 1] + tau
 
-        a[t_1 + 1] = 0  # Moving in constant velocity now.
+        # Moving in constant velocity now.
+        # RANDOM TRAJECTORY PHASE:
 
-    def accelerator(self, choice, init_v):
+    def acc(self, choice, v_init):
         """
-        A HoF that will return the acceleration scenario for the CAV during the acceleration phase.
+        A HoF that will return the acceleration scenario for the CAV during the acceleration phase. With the given
+        acceleration function, the CAV will accelerate up to the desired velocity (a value between init_v + 5 and
+        the max velocity)
 
         :param choice:
-        :param init_v:
+        :param v_init:
         """
 
-        desired_v = int(r.uniform(init_v + 5, self.max_v))
-        v_fast = int(r.uniform((3 / 4) * desired_v, (7 / 8) * desired_v))
-        v_slow = int(r.uniform((1 / 4) * desired_v, (1 / 2) * desired_v))
+        v_des = int(r.uniform(v_init + 5, self.max_v))  # v_des = [init_v + 5, max_v]
+        v_fast = int(r.uniform((3 * v_des) / 4, (7 * v_des) / 8))  # v_fast = [(3/4) * v_des, (7/8) * v_des]
+        v_slow = int(r.uniform(v_des / 4, v_des / 2))  # v_slow = [(1/4) * v_des, (1/2) * v_des]
 
-        def accelerate_quickly_then_slowly(curr_t, duration):
+        def acc_quickly_then_slowly(curr_t, duration):
             """
             A function that will simulate the acceleration of a car speeding up quickly then speeding up slowly. First,
             the car will speed up quickly for half the duration then speed up slowly for the rest of the duration.
@@ -85,44 +79,44 @@ class Vehicle:
             :param duration:
             """
             # We want to a_fast to reach some v s.t. v <= max_v
-            a_fast = v_fast - init_v / (duration / 2)
-            a_slow = desired_v - v_fast / (duration / 2)
+            a_fast = (v_fast - v_init) / (duration / 2)
+            a_slow = (v_des - v_fast) / (duration / 2)
             if curr_t <= duration / 2:
                 return a_fast
             else:
                 return a_slow
 
-        def accelerate_slowly_then_quickly(curr_t, duration):
+        def acc_slowly_then_quickly(curr_t, duration):
             """
             A function that will simulate the acceleration of a car speeding up slowly then speeding up quickly. First,
             the car will speed up slowly for half of the duration then speed up quickly for the rest of the duration.
             """
-            a_slow = v_slow - init_v / (duration / 2)
-            a_fast = desired_v - v_slow / (duration / 2)
+            a_slow = (v_slow - v_init) / (duration / 2)
+            a_fast = (v_des - v_slow) / (duration / 2)
             if curr_t <= duration / 2:
                 return a_slow
             else:
                 return a_fast
 
-        def accelerate_quickly(curr_t, duration):
+        def acc_quickly(curr_t, duration):
             """
             A function that will simulate the acceleration of a car speeding up quickly. The car will be speeding up
             quickly for the entire duration of the acceleration phase.
             """
-            return v_fast - init_v / duration
+            return (v_fast - v_init) / duration
 
-        def accelerate_slowly(curr_t, duration):
+        def acc_slowly(curr_t, duration):
             """
             A function that will simulate the acceleration of a car speeding up slowly. The car will be speeding up
             slowly for the entire duration of the acceleration phase.
             """
-            return v_slow - init_v / duration
+            return (v_slow - v_init) / duration
 
         if choice == 1:
-            return accelerate_quickly_then_slowly
+            return acc_quickly_then_slowly
         elif choice == 2:
-            return accelerate_slowly_then_quickly
+            return acc_slowly_then_quickly
         elif choice == 3:
-            return accelerate_quickly
+            return acc_quickly
         elif choice == 4:
-            return accelerate_slowly
+            return acc_slowly
