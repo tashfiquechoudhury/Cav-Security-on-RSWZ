@@ -32,10 +32,12 @@ class Vehicle:
         :param duration:
         :param seed:
         """
-        # Initialize velocity (v), acceleration (a), position (x), and time (t) arrays,
-        # pseudorandom number generator, and clear cache.
+        # Clear cache from previous trip
         self.prev_action = None
         self.cache = None
+
+        # Initialize velocity (v), acceleration (a), position (x), and time (t) arrays,
+        # and pseudorandom number generator.
         tau = timestep
         N = int(duration / tau) + 1
         t = np.zeros(N, dtype=np.float32)
@@ -57,6 +59,7 @@ class Vehicle:
         acc_duration = (duration / ((len(t) - 1) / (acc_t_end - 1)))
         acc = self.acc(1, v_init, acc_duration, acc_t_end - 1)
         for i in range(acc_t_start, acc_t_end):
+            # Update trajectory information
             a[i] = acc(i)
             x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i - 1] * (tau ** 2))
             v[i] = v[i - 1] + tau * a[i]
