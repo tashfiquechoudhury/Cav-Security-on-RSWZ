@@ -36,7 +36,7 @@ def plot_trajectory_1D(dataframe):
     :param dataframe:
     """
     # Acceleration
-    dataframe.plot(kind='scatter', x='time', y='acceleration', color='green')
+    dataframe.plot(kind='line', x='time', y='acceleration', color='green')
     plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
     plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     plt.xlabel("Time (s)", size=15)
@@ -46,7 +46,7 @@ def plot_trajectory_1D(dataframe):
     plt.show()
 
     # Position
-    dataframe.plot(kind='scatter', x='time', y='position', color='green')
+    dataframe.plot(kind='line', x='time', y='position', color='green')
     plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
     plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     plt.xlabel("Time (s)", size=15)
@@ -56,7 +56,7 @@ def plot_trajectory_1D(dataframe):
     plt.show()
 
     # Velocity
-    dataframe.plot(kind='scatter', x='time', y='velocity', color='green')
+    dataframe.plot(kind='line', x='time', y='velocity', color='green')
     plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
     plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     plt.xlabel("Time (s)", size=15)
