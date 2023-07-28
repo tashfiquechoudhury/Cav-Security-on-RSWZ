@@ -2,12 +2,6 @@ import numpy as np
 import pandas as pd
 import random as r
 
-"""
-Eventually, we'll have control over the trajectory of the vehicle based on work zone reduction speeds and stop signs. We
-will use a "mode" to refer to what the car should be doing. For example, we could have the car in "drive regular" mode
-then when there's a rswz we'd change the mode to "rswz" until some condition has been reached.
-"""
-
 
 class Vehicle:
     """
@@ -73,46 +67,68 @@ class Vehicle:
         counter = 0
         i = ran_t_start
 
-        for i in range(ran_t_start, ran_t_end):
-            # Parse input
-            comm = input("").split(",")
+        comms = {
+            ran_t_start + 10: "stop,100,20",
+            ran_t_start + 100: "rs,50,10,500"
+        }
 
-            if comm[0] == 'rs':
+        print("ran_t_start + 10 is", ran_t_start)
 
+        while i < ran_t_end:
+            if i in comms:
+                # Read in the V2I communication
                 # comm = ['rs', 'dist_to_WZ', 'speed_limit_in_WZ', 'distance/duration']
+                # OR
+                # comm = ['stop', 'dist_to_WZ', 'duration of stop in seconds']
+                comm = comms[i].split(",")
 
-                speed = v[i - 1]
-                distance_to_WZ = comm[1]
-                reduced_speed = comm[2]
-                distance_of_WZ = comm[3]
+                if comm[0] == 'rs':
+                    curr_v = v[i - 1]
+                    dist_to_WZ, des_v, dist_of_WZ = int(comm[1]), int(comm[2]), int(comm[3])
 
-                if speed <= reduced_speed:
-                    a[i] = 0
-                else:
+                    # To calculate the appropriate deceleration, we use the following kinematic equation
+                    # a = (reduced_speed ** 2) - (speed ** 2) / ((2 * distance_to_WZ))
+                    if curr_v > des_v:
+                        dec = ((des_v ** 2) - (curr_v ** 2)) / (2 * dist_to_WZ)
+                        while v[i - 1] > des_v:
+                            a[i] = dec
+                            x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
+                            v[i] = v[i - 1] + tau * a[i]
+                            t[i] = t[i - 1] + tau
+                            i += 1
 
-                    a[i] = deceleration
+                    # Whether our curr_v is above or below the RSWZ speed limit, we need to traverse the WZ.
+                    des_x = x[i - 1] + dist_of_WZ
+                    while x[i - 1] <= des_x:
+                        a[i] = 0
+                        x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
+                        v[i] = v[i - 1] + tau * a[i]
+                        t[i] = t[i - 1] + tau
+                        i += 1
 
-                # if mode == 'rswz':
-                # execute whatever we need
-                # elif mode == 'stop':
-                # execute wahtever we need
-                # ...
-                # ...
-                # once we're dne, we set mode == "random"
-                # else:
-                # rs
-                # dist_to_WZ
-                # speed_limit_in_WZ, dist / duration
-                # rs, 100, 20, 500
-                #
-                # stop, dist_to_WZ, duration_of_stop
-                # stop, 200, 120
-                comm = ['']
-            elif comm[0] == 'stop':
+                elif comm[0] == 'stop':
+                    curr_v = v[i - 1]
+                    dist_to_WZ, stop_duration = int(comm[1]), int(int(comm[2]) / tau)
+                    # To calculate the appropriate deceleration, we use the following kinematic equation
+                    # a = (reduced_speed ** 2) - (speed ** 2) / ((2 * distance_to_WZ))
+                    dec = -(curr_v ** 2) / (2 * dist_to_WZ)
+                    while v[i - 1] > 0:
+                        a[i] = dec
+                        x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
+                        v[i] = v[i - 1] + tau * a[i]
+                        if v[i] < 0:
+                            v[i] = 0
+                        t[i] = t[i - 1] + tau
+                        i += 1
 
-                # comm = ['stop', 'dist_to_WZ', 'duration_of_stop']
+                    # Now we iterate over the duration of the stop
+                    for _ in range(stop_duration):
+                        v[i] = v[i - 1]
+                        x[i] = x[i - 1]
+                        a[i] = 0
+                        t[i] = t[i - 1] + tau
+                        i += 1
 
-                comm = ['']
             else:
                 if counter % 20 == 0:
                     # 1st condition: is v[i] "far away" from v_max ?
@@ -192,11 +208,17 @@ class Vehicle:
                                     a[i] = self.control(v[i - 1], a[i - 1], tau, option=6)
                                 else:
                                     a[i] = self.control(v[i - 1], a[i - 1], tau)
-            # Update trajectory information
-            counter += 1
-            x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
-            v[i] = v[i - 1] + tau * a[i]
-            t[i] = t[i - 1] + tau
+                else:
+                    a[i] = a[i - 1]
+                # Update trajectory information
+                x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
+                v[i] = v[i - 1] + tau * a[i]
+                if v[i] < 0:
+                    v[i] = 0
+                t[i] = t[i - 1] + tau
+
+                counter += 1
+                i += 1
 
         # Given the current velocity we're traveling and the time remaining from the trip, we need to calculate
         # the value of acceleration to decelerate our current velocity such that it reaches 0 at the end.
