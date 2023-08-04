@@ -9,16 +9,14 @@ class Vehicle:
     based on various parameters.
     """
 
-    def __init__(self, v_max, a_max, model, make):
+    def __init__(self, v_max, a_max):
         self.v_max = v_max
         self.a_max = a_max
-        self.model = model
-        self.make = make
         self.cache = None
         self.prev_action = None
-        self.actions = []
+        self.comms = []
 
-    def trajectory(self, v_init, timestep, duration, seed):
+    def trajectory(self, v_init, timestep, duration, v2i_comms, seed=0):
         """
         Reports the velocity, position, and acceleration of the CAV at each timestep up until duration as a dictionary.
 
@@ -27,9 +25,10 @@ class Vehicle:
         :param duration:
         :param seed:
         """
-        # Clear cache from previous trip
+        # Clear cache from previous trajectory
         self.prev_action = None
         self.cache = None
+        self.comms = []
 
         # Initialize velocity (v), acceleration (a), position (x), and time (t) arrays,
         # and pseudorandom number generator.
@@ -66,23 +65,23 @@ class Vehicle:
         ran_t_end = int((9 / 10) * len(t)) + 1
         counter = 0
         i = ran_t_start
+        increments = [10, 100]
 
-        comms = {
-            ran_t_start + 10: "stop,100,20",
-            ran_t_start + 100: "rs,50,10,500"
-        }
-
-        print("ran_t_start + 10 is", ran_t_start)
+        v2i = \
+            {
+                ran_t_start + increments[i]: v2i_comms[i] for i in range(len(v2i_comms))
+            }
 
         while i < ran_t_end:
-            if i in comms:
+            if i in v2i:
                 # Read in the V2I communication
-                # comm = ['rs', 'dist_to_WZ', 'speed_limit_in_WZ', 'distance/duration']
+                # comm = ['RS', 'dist_to_WZ', 'speed_limit', 'len_of_WZ']
                 # OR
-                # comm = ['stop', 'dist_to_WZ', 'duration of stop in seconds']
-                comm = comms[i].split(",")
+                # comm = ['S', 'dist_to_WZ', 'duration']
+                comm = v2i[i].split(",")
+                start = i
 
-                if comm[0] == 'rs':
+                if comm[0] == 'RS':
                     curr_v = v[i - 1]
                     dist_to_WZ, des_v, dist_of_WZ = int(comm[1]), int(comm[2]), int(comm[3])
 
@@ -106,9 +105,13 @@ class Vehicle:
                         t[i] = t[i - 1] + tau
                         i += 1
 
-                elif comm[0] == 'stop':
+                    end = i
+                    self.comms.append((start, end))
+
+                elif comm[0] == 'S':
                     curr_v = v[i - 1]
                     dist_to_WZ, stop_duration = int(comm[1]), int(int(comm[2]) / tau)
+                    start = i
                     # To calculate the appropriate deceleration, we use the following kinematic equation
                     # a = (reduced_speed ** 2) - (speed ** 2) / ((2 * distance_to_WZ))
                     dec = -(curr_v ** 2) / (2 * dist_to_WZ)
@@ -128,7 +131,8 @@ class Vehicle:
                         a[i] = 0
                         t[i] = t[i - 1] + tau
                         i += 1
-
+                    end = i
+                    self.comms.append((start, end))
             else:
                 if counter % 20 == 0:
                     # 1st condition: is v[i] "far away" from v_max ?
@@ -213,6 +217,7 @@ class Vehicle:
                 # Update trajectory information
                 x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
                 v[i] = v[i - 1] + tau * a[i]
+                # If our updated velocity is less than 0, we set it to 0 to represent a stop.
                 if v[i] < 0:
                     v[i] = 0
                 t[i] = t[i - 1] + tau
@@ -391,11 +396,6 @@ class Vehicle:
 
         return r.choice(subset_actions)(v, a, tau)
 
-    # TODO: To add more complexity to our acceleration/deceleration, we can take into account the max velocity and
-    #  make a reasonable estimate of the acceleration/deceleration.
-
-    # IMPORTANT
-    # TODO: Fix these functions such that we don't exceed a_max NOR exceed v_max NOR v go below 0!!!!!!
     def acc_fast(self, v, a, tau):
         # Check whether a will exceed a_max or not
         self.prev_action = self.acc_fast

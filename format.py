@@ -26,9 +26,6 @@ class MathTextSciFormatter(mticker.Formatter):
             s = r'%s%s' % (significand, exponent)
         return "${}$".format(s)
 
-
-# This function will display the trajectory of the CAV in 1D (x-coordinate)
-# TODO: Fix plot axes
 def plot_trajectory_1D(dataframe):
     """
     Displays and visualizes the trajectory of the CAV given a Pandas DataFrame.
