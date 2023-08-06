@@ -10,6 +10,12 @@ class Vehicle:
     """
 
     def __init__(self, v_max, a_max):
+        """
+        The constructor for the CAV.
+
+        :param v_max: The maximum velocity of the vehicle (int).
+        :param a_max: The maximum acceleration of the vehicle (int).
+        """
         self.v_max = v_max
         self.a_max = a_max
         self.cache = None
@@ -20,10 +26,11 @@ class Vehicle:
         """
         Reports the velocity, position, and acceleration of the CAV at each timestep up until duration as a dictionary.
 
-        :param v_init:
-        :param timestep:
-        :param duration:
-        :param seed:
+        :param v_init: The initial velocity of the vehicle (int).
+        :param timestep: The timestep of the trip (int).
+        :param duration: The duration of the trip in seconds (int).
+        :param seed: The seed of the trip (int).
+        :param v2i_comms: V2I communications (list).
         """
         # Clear cache from previous trajectory
         self.prev_action = None
@@ -51,7 +58,7 @@ class Vehicle:
         acc_t_start = 1
         acc_t_end = (int(r.uniform((len(t) - 1) / 5, (len(t) - 1) / 4))) + 1
         acc_duration = (duration / ((len(t) - 1) / (acc_t_end - 1)))
-        acc = self.acc(int(r.uniform(0, 4)), v_init, acc_duration, acc_t_end - 1)
+        acc = self.acc_acc(int(r.uniform(0, 4)), v[0], acc_duration, acc_t_end - 1)
         for i in range(acc_t_start, acc_t_end):
             # Update trajectory information
             a[i] = acc(i)
@@ -65,7 +72,7 @@ class Vehicle:
         ran_t_end = int((9 / 10) * len(t)) + 1
         counter = 0
         i = ran_t_start
-        increments = [10, 100]
+        increments = [10, 75]
 
         v2i = \
             {
@@ -105,13 +112,11 @@ class Vehicle:
                         t[i] = t[i - 1] + tau
                         i += 1
 
-                    end = i
-                    self.comms.append((start, end))
+                    self.comms.append((v2i[start], start))
 
                 elif comm[0] == 'S':
                     curr_v = v[i - 1]
                     dist_to_WZ, stop_duration = int(comm[1]), int(int(comm[2]) / tau)
-                    start = i
                     # To calculate the appropriate deceleration, we use the following kinematic equation
                     # a = (reduced_speed ** 2) - (speed ** 2) / ((2 * distance_to_WZ))
                     dec = -(curr_v ** 2) / (2 * dist_to_WZ)
@@ -131,15 +136,15 @@ class Vehicle:
                         a[i] = 0
                         t[i] = t[i - 1] + tau
                         i += 1
-                    end = i
-                    self.comms.append((start, end))
+
+                    self.comms.append((v2i[start], start))
             else:
                 if counter % 20 == 0:
                     # 1st condition: is v[i] "far away" from v_max ?
                     if self.is_v_far_from_v_max(v[i - 1]):
                         # 2nd condition: is this our first iteration of the random trajectory phase?
                         if i == ran_t_start:
-                            a[i] = self.control(v[i - 1], a[i - 1], tau)
+                            a[i] = self.acc_ran(v[i - 1], tau)
                         else:
                             # 3rd condition: what was our previous action?
                             if self.prev_action == self.acc_fast or self.prev_action == self.acc_slow:
@@ -147,11 +152,11 @@ class Vehicle:
                                 if self.prev_action == self.acc_fast:
                                     # 5th condition: Is our time step large? (Is our sampling rate big)
                                     if tau >= 1:
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, choice=4)
+                                        a[i] = self.acc_ran(v[i - 1], tau, choice=4)
                                     else:
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, option=1)
+                                        a[i] = self.acc_ran(v[i - 1], tau, option=1)
                                 else:
-                                    a[i] = self.control(v, a, tau, option=2)
+                                    a[i] = self.acc_ran(v[i - 1], tau, option=2)
                             elif self.prev_action == self.dec_fast or self.prev_action == self.dec_fast:
                                 # 4th condition: Is v near zero?
                                 if self.is_v_near_zero(v[i - 1]):
@@ -159,19 +164,19 @@ class Vehicle:
                                     if self.prev_action == self.dec_fast:
                                         # 6th condition: Is our time step large? (Is our sampling rate big)
                                         if tau >= 1:
-                                            a[i] = self.control(v[i - 1], a[i - 1], tau, choice=3)
+                                            a[i] = self.acc_ran(v[i - 1], tau, choice=3)
                                         else:
-                                            a[i] = self.control(v[i - 1], a[i - 1], tau, option=3)
+                                            a[i] = self.acc_ran(v[i - 1], tau, option=3)
                                     else:
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, option=4)
+                                        a[i] = self.acc_ran(v[i - 1], tau, option=4)
                                 else:
-                                    a[i] = self.control(v[i - 1], a[i - 1], tau)
+                                    a[i] = self.acc_ran(v[i - 1], tau)
                             elif self.prev_action == self.no_acc:
-                                a[i] = self.control(v[i - 1], a[i - 1], tau, option=5)
+                                a[i] = self.acc_ran(v[i - 1], tau, option=5)
                     else:
                         # 2nd condition: is this our first iteration of the random trajectory phase?
                         if i == ran_t_start:
-                            a[i] = self.control(v[i - 1], a[i - 1], tau, option=6)
+                            a[i] = self.acc_ran(v[i - 1], tau, option=6)
                         else:
                             # 3rd condition: What was the previous action?
                             if self.prev_action == self.acc_fast or self.prev_action == self.acc_slow:
@@ -179,39 +184,39 @@ class Vehicle:
                                 if self.prev_action == self.acc_fast:
                                     # 5th condition: Is v near v_max?
                                     if self.is_v_near_v_max(v[i - 1]):
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, option=6)
+                                        a[i] = self.acc_ran(v[i - 1], tau, option=6)
                                     else:
                                         # 6th condition: Is our time step large? (Is our sampling rate big)
                                         if tau >= 1:
-                                            a[i] = self.control(v[i - 1], a[i - 1], tau, option=7)
+                                            a[i] = self.acc_ran(v[i - 1], tau, option=7)
                                         else:
-                                            a[i] = self.control(v[i - 1], a[i - 1], tau, option=8)
+                                            a[i] = self.acc_ran(v[i - 1], tau, option=8)
                                 else:
                                     # 5th condition: Is v near v_max?
                                     if self.is_v_near_v_max(v[i - 1]):
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, choice=3)
+                                        a[i] = self.acc_ran(v[i - 1], tau, choice=3)
                                     else:
                                         # 6th condition: Is our time step large? (Is our sampling rate big)
                                         if tau >= 1:
-                                            a[i] = self.control(v[i - 1], a[i - 1], tau, option=3)
+                                            a[i] = self.acc_ran(v[i - 1], tau, option=3)
                                         else:
-                                            a[i] = self.control(v[i - 1], a[i - 1], tau)
+                                            a[i] = self.acc_ran(v[i - 1], tau)
                             elif self.prev_action == self.dec_fast or self.prev_action == self.dec_slow:
                                 # 4th condition: Were we decelerating fast or slow?
                                 if self.prev_action == self.dec_fast:
                                     # 5th condition: Is our time step large? (Is our sampling rate big)
                                     if tau >= 1:
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, option=7)
+                                        a[i] = self.acc_ran(v[i - 1], tau, option=7)
                                     else:
-                                        a[i] = self.control(v[i - 1], a[i - 1], tau, choice=4)
+                                        a[i] = self.acc_ran(v[i - 1], tau, choice=4)
                                 else:
-                                    a[i] = self.control(v[i - 1], a[i - 1], tau, option=7)
+                                    a[i] = self.acc_ran(v[i - 1], tau, option=7)
                             elif self.prev_action == self.no_acc:
                                 # 4th condition: is v near v max?
                                 if self.is_v_near_v_max(v[i - 1]):
-                                    a[i] = self.control(v[i - 1], a[i - 1], tau, option=6)
+                                    a[i] = self.acc_ran(v[i - 1], tau, option=6)
                                 else:
-                                    a[i] = self.control(v[i - 1], a[i - 1], tau)
+                                    a[i] = self.acc_ran(v[i - 1], tau)
                 else:
                     a[i] = a[i - 1]
                 # Update trajectory information
@@ -245,17 +250,17 @@ class Vehicle:
 
         self.cache = dict({'t': t, 'x': x, 'v': v, 'a': a})
 
-    def acc(self, choice, v_init, duration, acc_duration):
+    def acc_acc(self, choice, v_init, duration, acc_duration):
         """
         A HoF that will return the acceleration scenario for the CAV during the acceleration phase. With the given
         acceleration function, the CAV will accelerate up to the desired velocity (a value between init_v + 5 and
-        the max velocity)
+        the max velocity).
 
-        :param choice: which acceleration scenario to choose (int)
-        :param v_init: initial velocity of CAV (float)
-        :param duration: duration of acceleration phase in seconds (int)
-        :param acc_duration: duration of acceleration phase represented discretely in time steps (int)
-        :return: function
+        :param choice: Which acceleration scenario to choose (int).
+        :param v_init: The initial velocity of CAV (np.float64).
+        :param duration: The duration of acceleration phase in seconds (int).
+        :param acc_duration: The duration of acceleration phase represented discretely in time steps (float).
+        :return: A function representing the acceleration scenario for this trip's acceleration phase.
         """
 
         v_des = int(r.uniform(v_init + 5, self.v_max))  # v_des = [init_v + 5, max_v]
@@ -266,8 +271,8 @@ class Vehicle:
             A function that will simulate the acceleration of a car speeding up quickly then speeding up slowly. First,
             the car will speed up quickly for half the duration then speed up slowly for the rest of the duration.
 
-            :param curr_t: current time within the acceleration phase (int)
-            :return: float
+            :param curr_t: The time within the acceleration phase (int).
+            :return: The new acceleration of the vehicle.
             """
             if curr_t <= acc_duration / 2:
                 return a_fast
@@ -279,8 +284,8 @@ class Vehicle:
             A function that will simulate the acceleration of a car speeding up slowly then speeding up quickly. First,
             the car will speed up slowly for half of the duration then speed up quickly for the rest of the duration.
 
-            :param curr_t: current time within the acceleration phase (int)
-            :return: float
+            :param curr_t: The time within the acceleration phase (int).
+            :return: The new acceleration of the vehicle.
             """
             if curr_t <= acc_duration / 2:
                 return a_slow
@@ -292,8 +297,8 @@ class Vehicle:
             A function that will simulate the acceleration of a car speeding up quickly. The car will be speeding up
             quickly until it reaches v_des then remains in constant velocity in the acceleration phase.
 
-            :param curr_t: current time within the acceleration phase (int)
-            :return: float
+            :param curr_t: The time within the acceleration phase (int).
+            :return: The new acceleration of the vehicle.
             """
             if curr_t > acc_duration / 2:
                 return 0
@@ -305,8 +310,8 @@ class Vehicle:
             A function that will simulate the acceleration of a car speeding up slowly. The car will be speeding up
             slowly for the entire duration of the acceleration phase.
 
-            :param curr_t: current time within the acceleration phase (int)
-            :return: float
+            :param curr_t: The time within the acceleration phase (int).
+            :return: The new acceleration of the vehicle.
             """
             return a_slow
 
@@ -325,58 +330,70 @@ class Vehicle:
             a_slow = (v_des - v_init) / duration
             return acc_slowly
 
+    # Control methods to influence the updated acceleration of the CAV during the random trajectory phase.
+
     def is_v_far_from_v_max(self, v):
         """
         A function that checks whether the current velocity is "far from" the maximum velocity. We consider v to be
         far away from v_max if v is within 1/3rd of v_max. NOTE: This set value of 1/3 can be tweaked (we could also
         say 1/6).
-        =
-        :param v: current velocity of CAV (int)
-        :return: boolean
+
+        :param v: The previous velocity of the vehicle (np.float64).
+        :return: A bool indicating whether v is far from v_max.
         """
         return v <= int((1 / 4) * self.v_max)
 
     def is_v_near_zero(self, v):
         """
         A function that checks whether the current velocity is "near" zero. We consider v to be near zero if v is within
-        5 m/s of 0 m/s. NOTE: This set value of 5 can be tweaked (we could also say 10 m/s)
+        5 m/s of 0 m/s. NOTE: This set value of 5 can be tweaked (we could also say 10 m/s).
 
-        :param v: current velocity of CAV (int)
-        :return: boolean
+        :param v: The previous velocity of the vehicle (np.float64).
+        :return: A bool indicating whether v is near 0.
         """
         return v <= 5
 
-    def is_v_near_v_max(self, v):
+    def is_v_near_v_max(self, v: np.float64):
         """
         A function that checks whether the current velocity is "near" v_max. We consider v to be near v_max if v is
-        within 5 m/s of v_max. NOTE: This set value of 5 can be tweaked (we could also say 10 m/s)
+        within 5 m/s of v_max. NOTE: This set value of 5 can be tweaked (we could also say 10 m/s).
 
-        :param v: current velocity of CAV (int)
-        :return: boolean
+        :param v: The previous velocity of the vehicle (np.float64).
+        :return: A bool indicating whether v is near v_max.
         """
         return (v - self.v_max) <= 10
 
-    def control(self, v, a, tau, option=0, choice=None):
+    def acc_ran(self, v, tau, option=0, choice=None):
         """
-        A HoF that will control the trajectory of the CAV based on various parameters.
+        A function that serves as the control panel for acceleration during the random trajectory phase. Returns the
+        updated acceleration of the CAV based on several parameters.
 
-        :param v: current velocity of the CAV (float)
-        :param a: current acceleration of the CAV (float)
-        :param tau: time step of the current trajectory (int)
-        :param option: which pool of actions we will randomly select from (int)
-        :param choice: optional parameter such that we restrict ourselves to a single action. (int)
-        :return: float
+        :param v: The previous velocity of the vehicle (np.float64).
+        :param tau: The timestep of the current trip (int).
+        :param option: An option that determines which pool of actions we will randomly select from (int).
+        :param choice: An optional parameter such that we restrict ourselves to a single action (int).
+        :return: The new acceleration of the vehicle.
         """
+
         all_actions = [self.acc_fast, self.acc_slow, self.dec_fast, self.dec_slow, self.no_acc]
         subset_actions = []
 
-        if choice:  # We force a particular action
-            return all_actions[choice](v, a, tau)
+        if choice is not None:  # We force a particular action
+            if choice == 0:
+                return self.acc_fast()
+            elif choice == 1:
+                return self.acc_slow()
+            elif choice == 2:
+                return self.dec_fast(v, tau)
+            elif choice == 3:
+                return self.dec_slow(v, tau)
+            else:
+                return self.no_acc()
 
         # Option X means we select ANY random action from ...
 
         if option == 0:  # all_actions
-            return r.choice(all_actions)(v, a, tau)
+            subset_actions = all_actions
         elif option == 1:  # (acc fast, no acc)
             subset_actions = [self.acc_fast, self.no_acc]
         elif option == 2:  # (acc slow, no acc)
@@ -394,43 +411,81 @@ class Vehicle:
         elif option == 8:  # (acc fast, acc slow, no acc)
             subset_actions = [self.acc_fast, self.acc_slow, self.no_acc]
 
-        return r.choice(subset_actions)(v, a, tau)
+        # Randomly choose action from subset_actions
+        action = r.choice(subset_actions)
 
-    def acc_fast(self, v, a, tau):
-        # Check whether a will exceed a_max or not
+        if action == self.acc_fast or action == self.acc_slow or action == self.no_acc:
+            return action()
+        return action(v, tau)
+
+    # Control panel for accelerating and decelerating during the random trajectory phase.
+
+    def acc_fast(self):
+        """
+        An action that represents the vehicle accelerating quickly a rate of 2.25 m/s^2.
+
+        :return: The new acceleration of the vehicle.
+        """
         self.prev_action = self.acc_fast
-        return 2.25
+        return 2
 
-    def acc_slow(self, v, a, tau):
-        # Check whether a will exceed a_max or not
+    def acc_slow(self):
+        """
+        An action that represents the vehicle accelerating slowly at rate of 1 m/s^2.
+
+        :return: The new acceleration of the vehicle.
+        """
         self.prev_action = self.acc_fast
         return 1
 
-    def dec_fast(self, v, a, tau):
-        # Check whether v will go below zero.
-        # v[i - 1] + tau * a[i] = v[i]
+    def dec_fast(self, v, tau):
+        """
+        An action that represents the vehicle decelerating quickly a rate of -3 m/s^2.
+
+        :param v: The previous velocity of the vehicle (np.float64).
+        :param tau: The timestep of the current trip (int).
+        :return: The new acceleration of the vehicle.
+        """
+        # Check whether v will go below zero, If it does, do not accelerate/decelerate.
+        # v[i - 1] + tau * candidate_a = v[i]
         if (v + tau * -3) < 0:
             self.prev_action = self.no_acc
-            return 0
+            return self.no_acc()
         self.prev_action = self.dec_fast
         return -3
 
-    def dec_slow(self, v, a, tau):
+    def dec_slow(self, v, tau):
+        """
+        An action that represents the vehicle decelerating slowly at a rate of -1 m/s^2.
+
+        :param v: The previous velocity of the vehicle (np.float64).
+        :param tau: The timestep of the current trip (int).
+        :return: The new acceleration of the vehicle.
+        """
+        # Check whether v will go below zero. If it does, do not accelerate/decelerate.
+        # v[i - 1] + tau * candidate_a = v[i]
         if (v + tau * -1) < 0:
             self.prev_action = self.no_acc
-            return 0
+            return self.no_acc()
         self.prev_action = self.dec_fast
         return -1
 
-    def no_acc(self, v, a, tau):
+    def no_acc(self):
+        """
+        An action that represents the vehicle not accelerating.
+
+        :return: The new acceleration of the vehicle.
+        """
         self.prev_action = self.no_acc
         return 0
 
+    # HELPER METHODS
+
     def report(self):
         """
-        A function that returns a dataframe containing all the information of the CAV's most recent trip.
+        Returns a DataFrame with information about the CAV's most recent trip.
 
-        :return: pandas dataframe
+        :return: A pandas DataFrame with information on the CAV's position, velocity, and acceleration.
         """
         assert self.cache is not None, "Cannot print report as cache is empty."
 
