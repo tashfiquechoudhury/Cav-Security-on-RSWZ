@@ -1,16 +1,19 @@
-import pandas as pd
-import numpy as np
 import random
-import matplotlib
 from vehicle.vehicle import *
 
 
+# TODO: Add documentation
 class Attack:
 
     def __init__(self, v_max, a_max):
+        """
+
+        @param v_max:
+        @param a_max:
+        """
         self.vehicle = Vehicle(v_max, a_max)
         self.v2i_comms = ["S,100,20", "RS,100,10,500"]
-        self.attks = \
+        self.attack_panel = \
             {
                 0: self.eq,
                 1: self.ignore_stop,
@@ -25,54 +28,391 @@ class Attack:
             }
 
     def traj(self, v_init, timestep, duration, seed):
+        """
+
+        @param v_init:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
         self.vehicle.trajectory(v_init, timestep, duration, self.v2i_comms, seed=seed)
         return self.vehicle.report()
 
     def compare(self, v_init, timestep, duration, seed, scenario=1):
-        assert scenario in self.attks, "Choose a valid scenario from 0-9"
+        """
+
+        @param v_init:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @param scenario:
+        @return:
+        """
+        assert scenario in self.attack_panel, "Choose a valid attack mechanism ranging from 0-9"
+
         random.seed(seed)
-        benign = self.traj(v_init, timestep, duration, seed=seed)
-        faulty = self.attks[scenario](v_init, timestep, duration, seed)
+        benign_traj = self.traj(v_init, timestep, duration, seed=seed)
+        faulty_traj = None
 
-    def ignore_stop(self, truth, v_init, timestep, duration, seed):
-        v2i_comms = list(filter(lambda comm: comm[0] != 'S', self.v2i_comms))
-        if len(v2i_comms) == 0:
-            return self.eq(truth, v_init, timestep, duration, seed)
-        ignored_comm = random.choice(v2i_comms)
+        if scenario == 0:
+            faulty_traj = self.eq(benign_traj)
+        elif scenario == 1:
+            faulty_traj = self.ignore_stop(benign_traj)
+        elif scenario == 2:
+            faulty_traj = self.ignore_rs(benign_traj)
+        elif scenario == 3:
+            perturbed_v = input("Input perturbed reduced speed in work zone: ")
+            faulty_traj = self.swz_rs(benign_traj, v_init, perturbed_v, timestep, duration, seed)
+        elif scenario == 4:
+            perturbed_dist = input("Input perturbed distance to work zone: ")
+            faulty_traj = self.dwz_rs(benign_traj, v_init, perturbed_dist, timestep, duration, seed)
+        elif scenario == 5:
+            perturbed_len = input("Input perturbed length of work zone: ")
+            faulty_traj = self.lwz_rs(benign_traj, v_init, perturbed_len, timestep, duration, seed)
+        elif scenario == 6:
+            perturbed = input(
+                "Input perturbed reduced speed, distance, and length of work zone as csv in that order: ").split(",")
+            faulty_traj = self.rswz(benign_traj, v_init, perturbed, timestep, duration, seed)
+        elif scenario == 7:
+            perturbed_dist = input("Input perturbed distance to work zone: ")
+            faulty_traj = self.dwz_stop(benign_traj, perturbed_dist)
+        elif scenario == 8:
+            perturbed_dur = input("Input perturbed duration of work zone: ")
+            faulty_traj = self.dur_wz_stop(benign_traj, v_init, perturbed_dur, timestep, duration, seed)
+        elif scenario == 9:
+            perturbed = input("Input perturbed distance and duration of work zone as csv in that order: ").split(",")
+            faulty_traj = self.stop(benign_traj, v_init, perturbed, timestep, duration, seed)
 
-        # TODO: Find a way to determine the start time of the randomly selected STOP v2i comm.
+        return faulty_traj, benign_traj
 
-        # Ignoring a stop will always result in a crash. Therefore, up until some comm. of stop, copy the dataframe
-        # of the benign case and anything from there on, a[i] = 0, v[i] = 0, and pos[i] = pos[i - 1]
+        # With both trajectories generated, we will now compare them with graphs!
+        # TODO: Visualize the difference(s) between the two trajectories of faulty and benign and save them.
 
-    def ignore_rs(self, truth, v_init, timestep, duration, seed):
-        v2i_comms = list(filter(lambda comm: comm[0] != 'RS', self.v2i_comms))
-        if len(v2i_comms) == 0:
-            return self.eq(truth, v_init, timestep, duration, seed)
-        ignored_comm = random.choice(v2i_comms)
-        # Ignoring a rs will always result in a crash. Therefore, up until the first comm. of rs, copy the dataframe
-        # of the benign case and anything from there on, a[i] = 0, v[i] = 0, and pos[i] = pos[i - 1]
+    # Attack panel
 
-    def swz_rs(self, truth, v_init, timestep, duration, seed):
-        return
+    def ignore_stop(self, truth):
+        """
+        Ignore one V2I stop communication.
 
-    def dwz_rs(self, truth, v_init, timestep, duration, seed):
-        return
+        @param truth:
+        @return: faulty trajectory
+        """
 
-    def lwz_rs(self, truth, v_init, timestep, duration, seed):
-        return
+        # Get a random S comm randomly within v2i_comms
+        _, stop_idx, _, _ = self.get_random_S_info()
 
-    def rswz(self, truth, v_init, timestep, duration, seed):
-        return
+        return self.simulate_crash(truth, stop_idx)
 
-    def dwz_stop(self, truth, v_init, timestep, duration, seed):
-        return
+    def ignore_rs(self, truth):
+        """
+        Ignore one V2I rs communication.
 
-    def dur_wz_stop(self, truth, v_init, timestep, duration, seed):
-        return
+        @param truth:
+        @return: faulty trajectory
+        """
 
-    def stop(self, truth, v_init, timestep, duration, seed):
-        return
+        # Get a random RS comm randomly within v2i_comms
+        _, rs_idx, _, _, _ = self.get_random_RS_info()
 
-    def eq(self, truth, v_init, timestep, duration, seed):
-        return
+        return self.simulate_crash(truth, rs_idx)
+
+    def swz_rs(self, truth, v_init, perturbed_v, timestep, duration, seed):
+        """
+        Change the speed of the reduced speed in the work zone. We have two scenarios:
+        (1) Nothing happens, and we just see a change in the speed during a work zone
+        (2) We crash UNLESS the perturbed_v <= speed of the rs_comm
+        @param truth:
+        @param v_init:
+        @param perturbed_v:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
+
+        outcome = random.choice([0, 1])
+        rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
+
+        if outcome == 1:
+            # (1): Find one RS comm and perturb it. Everything other comm stays the same.
+            # Create our perturbed v2i_comms
+            self.v2i_comms[rs_idx] = self.perturb_rs_comm(dist_to_WZ, perturbed_v, len_of_WZ)
+            faulty = self.traj(v_init, timestep, duration, seed)
+            return faulty
+        elif outcome == 2:
+            # (2): Crash
+            # If our perturbed v is less than the actual reduce speed in the work zone, no crash should happen.
+            if rs_comm.split(",")[2] >= perturbed_v:
+                return self.eq(truth)
+            else:
+                return self.simulate_crash(truth, rs_idx)
+
+    def dwz_rs(self, truth, v_init, perturbed_dist, timestep, duration, seed):
+        """
+        Change the distance to the work zone. We have two scenarios:
+        (1) Crash:
+            (1a): Crash because the actual distance is smaller than perturbed distance since we're not reducing our
+                  speed prior to entering the work zone.
+            (1b): Crash because the actual distance to the work zone near len_of_WZ (unchanged) + perturbed_dist which
+                  means our vehicle will traverse the entire "work zone" before even entering the work zone.
+        (2) Nothing happens:
+            (2a): Nothing happens because the actual distance is larger than the perturbed distance since we're reducing
+                  our speed then speeding up and the discrepancy of speeding up can be non-trivial thus we randomize the
+                  outcome.
+        @param truth:
+        @param v_init:
+        @param perturbed_dist:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
+
+        outcome = random.choice([0, 1])
+        rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
+
+        # Case 1a & 2b & 2
+        if dist_to_WZ <= perturbed_dist or dist_to_WZ - perturbed_dist - len_of_WZ <= 10 or outcome == 0:
+            return self.simulate_crash(truth, rs_idx)
+        else:
+            # No crash but our trajectory is perturbed
+            self.v2i_comms[rs_idx] = self.perturb_rs_comm(perturbed_dist, reduced_speed, len_of_WZ)
+            faulty = self.traj(v_init, timestep, duration, seed)
+            return faulty
+
+    def lwz_rs(self, truth, v_init, perturbed_len, timestep, duration, seed):
+        """
+        Change the length of the work zone.
+        1. Crash because the perturbed_length <= actual length
+        2. No crash because the perturbed_length >= actual length but traj changes
+
+        @param truth:
+        @param v_init:
+        @param perturbed_len:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
+
+        rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
+
+        if len_of_WZ > perturbed_len:
+            return self.simulate_crash(truth, rs_idx)
+        else:
+            # No crash but our trajectory is perturbed
+            self.v2i_comms[rs_idx] = self.perturb_rs_comm(dist_to_WZ, reduced_speed, perturbed_len)
+            faulty = self.traj(v_init, timestep, duration, seed)
+            return faulty
+
+    def rswz(self, truth, v_init, perturbed, timestep, duration, seed):
+        """
+        Change the length of, distance to, and speed limit of work zone.
+
+        Ultimately, we could either crash have a perturbed communication that would give us two different trajectories.
+        It'll be crash.
+
+        @param truth:
+        @param v_init:
+        @param perturbed:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
+        outcome = random.choice([0, 1])
+        rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
+
+        if outcome == 0:
+            return self.simulate_crash(truth, rs_idx)
+        else:
+            # Unpack perturbed values
+            perturbed_dist, perturbed_v, perturbed_len = perturbed
+            self.v2i_comms[rs_idx] = self.perturb_rs_comm(perturbed_dist, perturbed_v, perturbed_len)
+            faulty = self.traj(v_init, timestep, duration, seed)
+            return faulty
+
+    def dwz_stop(self, truth, perturbed_dist):
+        """
+        Change the distance to the work zone.
+
+        When it comes to making a stop, we either stop exactly where we need to or we crash.
+        Why crash?
+        1. We stop before under the assumption that's the stop zone and crash as we move into the actual stop zone
+        2. We stop after crossing the stop zone but we crash regardless.
+
+        @param truth:
+        @param perturbed_dist:
+        @return:
+        """
+        stop_comm, stop_idx, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
+
+        # Case 1 and 2
+        if dist_to_WZ - perturbed_dist > 5:
+            return self.eq(truth)
+        else:
+            return self.simulate_crash(truth, stop_idx)
+
+    def dur_wz_stop(self, truth, v_init, perturbed_dur, timestep, duration, seed):
+        """
+        Change the duration of the stop.
+        1. If we go over the actual duration, it doesn't really matter perhaps? (Maybe crash)
+        2. Waiting less than the actual duration is crash.
+
+
+        @param truth:
+        @param v_init:
+        @param perturbed_dur:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
+        outcome = random.choice([0, 1])
+        stop_comm, stop_idx, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
+        if 0 < dur_of_WZ - perturbed_dur <= 1 or perturbed_dur > dur_of_WZ and outcome == 0:
+            return self.simulate_crash(truth, stop_idx)
+        else:
+            self.v2i_comms[stop_idx] = self.perturb_s_comm(dist_to_WZ, perturbed_dur)
+            faulty = self.traj(v_init, timestep, duration, seed)
+            return faulty
+
+    def stop(self, truth, v_init, perturbed, timestep, duration, seed):
+        """
+        Change the distance to and duration of the stop at the work zone.
+
+        Ultimately, we either crash or have two different trajectories.
+
+        @param truth:
+        @param v_init:
+        @param perturbed:
+        @param timestep:
+        @param duration:
+        @param seed:
+        @return:
+        """
+
+        outcome = random.choice([0, 1])
+        stop_comm, stop_idx, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
+
+        if outcome == 0:
+            return self.simulate_crash(truth, stop_idx)
+        else:
+            # Unpack perturbed values
+            perturbed_dist, perturbed_dur = perturbed
+            self.v2i_comms[stop_idx] = self.perturb_s_comm(perturbed_dist, perturbed_dur)
+            faulty = self.traj(v_init, timestep, duration, seed)
+            return faulty
+
+    def eq(self, truth):
+        """
+        Return a copy of the truth trajectory as the faulty trajectory ended up becoming benign.
+        @param truth:
+        @return: copy of the benign trajectory
+        """
+
+        return truth.copy()
+
+    # HELPER METHODS
+
+    def simulate_crash(self, truth, i):
+        """
+        Simulate a crash starting at time step i
+
+        @param truth:
+        @param i:
+        @return:
+        """
+
+        faulty = truth.copy()
+        faulty.iloc[i:, 2] = 0
+        faulty.iloc[i:, 3] = 0
+        x_prev = truth.at[i - 1, "position"]
+        faulty.iloc[i:, 1] = x_prev
+
+        return faulty
+
+    def get_random_RS_comm(self):
+        """
+        Retrieve a random RS comm alongside its respective index within v2i_comms
+        @return:
+        """
+        # Iteratively find an RS comm randomly within the v2i_comms
+        rs_comm = "_,_,_,_"
+        rs_idx = -1
+        while rs_comm.split(",")[0] != 'RS':
+            rs_idx = random.choice(np.arange(len(self.v2i_comms)))
+            rs_comm = self.v2i_comms[rs_idx]
+
+        # Find the respective index of this comm within self.vehicle
+        for comm in self.vehicle.comms:
+            if comm[0] == rs_comm:
+                rs_idx = comm[1]
+                break
+
+        return rs_comm, rs_idx
+
+    def get_random_S_comm(self):
+        """
+        Retrieve a random S comm alongside its respective index within v2i_comms
+        @return:
+        """
+        # Iteratively find an S comm randomly within the v2i_comms
+        # WE ASSUME THERE EXIST ONE S comm within v2i_comms
+        stop_comm = "_,_,_"
+        stop_idx = -1
+        while stop_comm.split(",")[0] != 'S':
+            stop_idx = random.choice(np.arange(len(self.v2i_comms)))
+            stop_comm = self.v2i_comms[stop_idx]
+
+        # Find the respective index of this comm within self.vehicle
+        for comm in self.vehicle.comms:
+            if comm[0] == stop_comm:
+                stop_idx = comm[1]
+                break
+
+        return stop_comm, stop_idx
+
+    def get_random_RS_info(self):
+        """
+        Retrieve all necessary information about the RS communication
+        @return:
+        """
+        # Get a random RS com randomly within v2i comms
+        rs_comm, rs_idx = self.get_random_RS_comm()
+        # Get information from rs_comm
+        dist_to_WZ, reduced_speed, len_of_WZ = map(int, rs_comm.split(",")[1:])
+        return rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ
+
+    def get_random_S_info(self):
+        """
+        Retrieve all necessary information about the S communication
+        @return:
+        """
+        # Get a random RS com randomly within v2i comms
+        stop_comm, stop_idx = self.get_random_S_comm()
+        # Get information from stop_comm
+        dist_to_WZ, dur_of_WZ, = map(int, stop_comm.split(",")[1:])
+        return stop_comm, stop_idx, dist_to_WZ, dur_of_WZ
+
+    def perturb_rs_comm(self, dist_to_WZ, reduced_speed_of_WZ, len_of_WZ):
+        """
+
+        @param dist_to_WZ:
+        @param reduced_speed_of_WZ:
+        @param len_of_WZ:
+        @return: Perturbed V2I RS communication
+        """
+        perturbed_comm = 'RS,' + str(dist_to_WZ) + ',' + str(reduced_speed_of_WZ) + ',' + str(len_of_WZ)
+        return perturbed_comm
+
+    def perturb_s_comm(self, dist_to_WZ, dur_of_WZ):
+        """
+
+        @param dist_to_WZ:
+        @param dur_of_WZ:
+        @return: Perturbed V2I S communication
+        """
+        perturbed_comm = 'RS,' + str(dist_to_WZ) + ',' + str(dur_of_WZ)
+        return perturbed_comm
