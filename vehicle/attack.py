@@ -285,11 +285,11 @@ class Attack:
         Ultimately, we either crash or have two different trajectories.
 
         :param truth: The benign trajectory of the CAV (Pandas DataFrame).
-        :param v_init: 
-        :param perturbed:
-        :param timestep:
-        :param duration:
-        :param seed:
+        :param v_init: The initial velocity of the vehicle (int).
+        :param perturbed: The perturbed communications (list).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory (int).
+        :param seed: The seed of the beinign treajectyory. (int)
         :return:
         """
 
