@@ -13,8 +13,8 @@ class Vehicle:
         """
         The constructor for the CAV.
 
-        :param v_max: The maximum velocity of the vehicle (int).
-        :param a_max: The maximum acceleration of the vehicle (int).
+        :param v_max: The maximum velocity of the vehicle, in m/s (int).
+        :param a_max: The maximum acceleration of the vehicle, in m/s^2 (int).
         """
         self.v_max = v_max
         self.a_max = a_max
@@ -26,9 +26,9 @@ class Vehicle:
         """
         Reports the velocity, position, and acceleration of the CAV at each timestep up until duration as a dictionary.
 
-        :param v_init: The initial velocity of the vehicle (int).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
         :param timestep: The timestep of the trip (int).
-        :param duration: The duration of the trip in seconds (int).
+        :param duration: The duration of the trip, in seconds (int).
         :param seed: The seed of the trip (int).
         :param v2i_comms: V2I communications (list).
         """
@@ -257,8 +257,8 @@ class Vehicle:
         the max velocity).
 
         :param choice: Which acceleration scenario to choose (int).
-        :param v_init: The initial velocity of CAV (np.float64).
-        :param duration: The duration of acceleration phase in seconds (int).
+        :param v_init: The initial velocity of CAV, in m/s. (np.float64).
+        :param duration: The duration of acceleration phase, in seconds (int).
         :param acc_duration: The duration of acceleration phase represented discretely in time steps (float).
         :return: A function representing the acceleration scenario for this trip's acceleration phase.
         """
@@ -338,7 +338,7 @@ class Vehicle:
         far away from v_max if v is within 1/3rd of v_max. NOTE: This set value of 1/3 can be tweaked (we could also
         say 1/6).
 
-        :param v: The previous velocity of the vehicle (np.float64).
+        :param v: The previous velocity of the vehicle, in m/s (np.float64).
         :return: A bool indicating whether v is far from v_max.
         """
         return v <= int((1 / 4) * self.v_max)
@@ -348,7 +348,7 @@ class Vehicle:
         A function that checks whether the current velocity is "near" zero. We consider v to be near zero if v is within
         5 m/s of 0 m/s. NOTE: This set value of 5 can be tweaked (we could also say 10 m/s).
 
-        :param v: The previous velocity of the vehicle (np.float64).
+        :param v: The previous velocity of the vehicle, in m/s (np.float64).
         :return: A bool indicating whether v is near 0.
         """
         return v <= 5
@@ -358,7 +358,7 @@ class Vehicle:
         A function that checks whether the current velocity is "near" v_max. We consider v to be near v_max if v is
         within 5 m/s of v_max. NOTE: This set value of 5 can be tweaked (we could also say 10 m/s).
 
-        :param v: The previous velocity of the vehicle (np.float64).
+        :param v: The previous velocity of the vehicle, in m/s (np.float64).
         :return: A bool indicating whether v is near v_max.
         """
         return (v - self.v_max) <= 10
@@ -368,7 +368,7 @@ class Vehicle:
         A function that serves as the control panel for acceleration during the random trajectory phase. Returns the
         updated acceleration of the CAV based on several parameters.
 
-        :param v: The previous velocity of the vehicle (np.float64).
+        :param v: The previous velocity of the vehicle, in m/s (np.float64).
         :param tau: The timestep of the current trip (int).
         :param option: An option that determines which pool of actions we will randomly select from (int).
         :param choice: An optional parameter such that we restrict ourselves to a single action (int).
@@ -442,7 +442,7 @@ class Vehicle:
         """
         An action that represents the vehicle decelerating quickly a rate of -3 m/s^2.
 
-        :param v: The previous velocity of the vehicle (np.float64).
+        :param v: The previous velocity of the vehicle, in m/s (np.float64).
         :param tau: The timestep of the current trip (int).
         :return: The new acceleration of the vehicle.
         """
@@ -458,7 +458,7 @@ class Vehicle:
         """
         An action that represents the vehicle decelerating slowly at a rate of -1 m/s^2.
 
-        :param v: The previous velocity of the vehicle (np.float64).
+        :param v: The previous velocity of the vehicle, in m/s (np.float64).
         :param tau: The timestep of the current trip (int).
         :return: The new acceleration of the vehicle.
         """
