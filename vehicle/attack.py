@@ -2,14 +2,17 @@ import random
 from vehicle.vehicle import *
 
 
-# TODO: Add documentation
 class Attack:
+    """
+    An object that represents the various attack scenarios that can come about from V2I/V2X communication.
+    """
 
     def __init__(self, v_max, a_max):
         """
+        The constructor for the Attack module.
 
-        @param v_max:
-        @param a_max:
+        :param v_max: The maximum velocity of the vehicle, in m/s (int).
+        :param a_max: The maximum acceleration of the vehicle, in m/s^2 (int).
         """
         self.vehicle = Vehicle(v_max, a_max)
         self.v2i_comms = ["S,100,20", "RS,100,10,500"]
@@ -29,25 +32,28 @@ class Attack:
 
     def traj(self, v_init, timestep, duration, seed):
         """
+        Return a benign trajectory of the vehicle.
 
-        @param v_init:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory (int).
+        :return: A benign trajectory of the object's vehicle.
         """
         self.vehicle.trajectory(v_init, timestep, duration, self.v2i_comms, seed=seed)
         return self.vehicle.report()
 
     def compare(self, v_init, timestep, duration, seed, scenario=1):
         """
+        A function that compares the benign trajectory with a faulty trajectory that was under a specific attack
+        scenario.
 
-        @param v_init:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @param scenario:
-        @return:
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory (int).
+        :param scenario: Which attack scenario to execute (int).
+        :return: A graph highlighting the differences between the benign and faulty trajectory.
         """
         assert scenario in self.attack_panel, "Choose a valid attack mechanism ranging from 0-9"
 
@@ -93,10 +99,10 @@ class Attack:
 
     def ignore_stop(self, truth):
         """
-        Ignore one V2I stop communication.
+        Return a perturbed trajectory where a V2I s communication is ignored which ultimately results in a crash.
 
-        @param truth:
-        @return: faulty trajectory
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).:
+        :return: The perturbed trajectory.
         """
 
         # Get a random S comm randomly within v2i_comms
@@ -106,10 +112,10 @@ class Attack:
 
     def ignore_rs(self, truth):
         """
-        Ignore one V2I rs communication.
+        Return a perturbed trajectory where a V2I rs communication is ignored which ultimately results in a crash.
 
-        @param truth:
-        @return: faulty trajectory
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).:
+        :return: The perturbed trajectory.
         """
 
         # Get a random RS comm randomly within v2i_comms
@@ -119,16 +125,19 @@ class Attack:
 
     def swz_rs(self, truth, v_init, perturbed_v, timestep, duration, seed):
         """
-        Change the speed of the reduced speed in the work zone. We have two scenarios:
-        (1) Nothing happens, and we just see a change in the speed during a work zone
-        (2) We crash UNLESS the perturbed_v <= speed of the rs_comm
-        @param truth:
-        @param v_init:
-        @param perturbed_v:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        Return a perturbed trajectory where the reduced speed in the work zone is perturbed.
+        We have a few cases of what the perturbed trajectory will look like:
+
+        1. Crash/no crash because the perturbed reduced speed in the work zone may or may not cause a crash thus we
+           randomize the outcome using pseudo-randomness.
+
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param perturbed_v: The perturbed reduced speed in the work zone (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
+        :return: The perturbed trajectory.
         """
 
         outcome = random.choice([0, 1])
@@ -150,29 +159,29 @@ class Attack:
 
     def dwz_rs(self, truth, v_init, perturbed_dist, timestep, duration, seed):
         """
-        Change the distance to the work zone. We have two scenarios:
-        (1) Crash:
-            (1a): Crash because the actual distance is smaller than perturbed distance since we're not reducing our
-                  speed prior to entering the work zone.
-            (1b): Crash because the actual distance to the work zone near len_of_WZ (unchanged) + perturbed_dist which
-                  means our vehicle will traverse the entire "work zone" before even entering the work zone.
-        (2) Nothing happens:
-            (2a): Nothing happens because the actual distance is larger than the perturbed distance since we're reducing
-                  our speed then speeding up and the discrepancy of speeding up can be non-trivial thus we randomize the
-                  outcome.
-        @param truth:
-        @param v_init:
-        @param perturbed_dist:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        Return a perturbed trajectory where the distance to the work zone is perturbed.
+        We have a few cases of what the perturbed trajectory will look like:
+
+        1. Crash because the actual distance is smaller than the perturbed distance, so we're not reduced our speed prior
+           to entering the work zone.
+        2. Crash because thea actual distance to the work zone is near the length of the work zone plus the perturbed
+           distance to the work zone which implies our vehicle, based on the malicious V2I communication, will think it
+           has traversed the work zone before even entering the actual work zone.
+        3. The actual distance to the work zone is larger than the perturbed distance and this
+           may or may not cause a crash thus we randomize the outcome.
+
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param perturbed_dist: The perturbed distance to the work zone (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
+        :return: The perturbed trajectory.
         """
 
         outcome = random.choice([0, 1])
         rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
 
-        # Case 1a & 2b & 2
         if dist_to_WZ <= perturbed_dist or dist_to_WZ - perturbed_dist - len_of_WZ <= 10 or outcome == 0:
             return self.simulate_crash(truth, rs_idx)
         else:
@@ -183,17 +192,19 @@ class Attack:
 
     def lwz_rs(self, truth, v_init, perturbed_len, timestep, duration, seed):
         """
-        Change the length of the work zone.
-        1. Crash because the perturbed_length <= actual length
-        2. No crash because the perturbed_length >= actual length but traj changes
+        Return a perturbed trajectory where the distance/length of the work zone is perturbed.
+        We have a few cases of what the perturbed trajectory will look like:
 
-        @param truth:
-        @param v_init:
-        @param perturbed_len:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        1. Crash because the perturbed distance/length is less than the actual distance/length.
+        2. No crash because the perturbed distance/length is greater than the actual distance/length.
+
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param perturbed_len: The perturbed distance/length of the work zone (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
+        :return: The perturbed trajectory.
         """
 
         rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
@@ -208,18 +219,18 @@ class Attack:
 
     def rswz(self, truth, v_init, perturbed, timestep, duration, seed):
         """
-        Return a perturbed trajectory where the distance to, reduced speed in, and distance/length of the work zone is perturbed.
-        We have a few cases of what the perturbed trajectory will look like:
+        Return a perturbed trajectory where the distance to, reduced speed in, and distance/length of the work zone is
+        perturbed. We have a few cases of what the perturbed trajectory will look like:
 
         1. Crash because the perturbed V2I communication is incorrect in every way.
         2. No crash by chance.
 
         :param truth: The benign trajectory of the CAV (Pandas DataFrame).
         :param v_init: The initial velocity of the vehicle, in m/s (int).
-        :param perturbed_dur: The perturbed communication (list).
+        :param perturbed: The perturbed communication (list).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int). 
-        :param seed: The seed of the beinign treajectyory. (int)
+        :param seed: The seed of the benign trajectory. (int)
         :return: The perturbed trajectory.
         """
         outcome = random.choice([0, 1])
@@ -236,15 +247,16 @@ class Attack:
 
     def dwz_stop(self, truth, perturbed_dist):
         """
-        Return a perturbed trajectory where the distance to the work zone is perturbed. We have a few cases of waht
+        Return a perturbed trajectory where the distance to the work zone is perturbed. We have a few cases of what
         the perturbed trajectory will look like:
 
-        1. Crash because we stop before the actual stop of the work zone and we move into the actual work zone as a result.
+        1. Crash because we stop before the actual stop of the work zone, and we move into the actual work zone as a
+           result.
         2. No crash because the difference between the distances to the work zone is trivial.
         3. Crash because the difference between the distances to the work zone is non-trivial.
 
-        :param truth: The benign trajecory of the CAV (Pandas DataFrame).
-        :aram perturbed_dist: The perturbed distance to the work zone, in meters (int).
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param perturbed_dist: The perturbed distance to the work zone, in meters (int).
         :return: The perturbed trajectory.
         """
         stop_comm, stop_idx, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
@@ -261,14 +273,14 @@ class Attack:
 
         1. Crash because the perturbed duration of the stop less than the actual duration of the stop.
         2. The perturbed duration of the stop is greater than the actual duration of the stop and 
-        that may or may not cause a crash so we decide the outcome randomly.
+        that may or may not cause a crash, so we decide the outcome randomly.
 
         :param truth: The benign trajectory of the CAV (Pandas DataFrame).
         :param v_init: The initial velocity of the vehicle, in m/s (int).
         :param perturbed_dur: The perturbed duration of the stop at the work zone, in seconds (int).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int). 
-        :param seed: The seed of the beinign trajectory. (int)
+        :param seed: The seed of the benign trajectory. (int)
         :return: The perturbed trajectory.
         """
         outcome = random.choice([0, 1])
@@ -293,7 +305,7 @@ class Attack:
         :param perturbed: The perturbed communications (list).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int). 
-        :param seed: The seed of the beinign trajectory. (int)
+        :param seed: The seed of the benign trajectory. (int)
         :return: The perturbed trajectory.
         """
 
@@ -437,7 +449,7 @@ class Attack:
         Return a perturbed s communication given either:
         1. The perturbed dist_to_WZ and benign dur_of_WZ
         2. The benign dist_to_WZ and perturbed dur_of_WZ
-        3. The peturbed dist_to_WZ and perturbed dur_of_WZ
+        3. The perturbed dist_to_WZ and perturbed dur_of_WZ
 
         :param dist_to_WZ: The distance to the work zone, in meters (int).
         :param dur_of_WZ: The duration of the stop at the work zone, in seconds (int).
