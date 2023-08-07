@@ -208,18 +208,19 @@ class Attack:
 
     def rswz(self, truth, v_init, perturbed, timestep, duration, seed):
         """
-        Change the length of, distance to, and speed limit of work zone.
+        Return a perturbed trajectory where the distance to, reduced speed in, and distance/length of the work zone is perturbed.
+        We have a few cases of what the perturbed trajectory will look like:
 
-        Ultimately, we could either crash have a perturbed communication that would give us two different trajectories.
-        It'll be crash.
+        1. Crash because the perturbed V2I communication is incorrect in every way.
+        2. No crash by chance.
 
-        @param truth:
-        @param v_init:
-        @param perturbed:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param perturbed_dur: The perturbed communication (list).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int). 
+        :param seed: The seed of the beinign treajectyory. (int)
+        :return: The perturbed trajectory.
         """
         outcome = random.choice([0, 1])
         rs_comm, rs_idx, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
@@ -235,43 +236,44 @@ class Attack:
 
     def dwz_stop(self, truth, perturbed_dist):
         """
-        Change the distance to the work zone.
+        Return a perturbed trajectory where the distance to the work zone is perturbed. We have a few cases of waht
+        the perturbed trajectory will look like:
 
-        When it comes to making a stop, we either stop exactly where we need to or we crash.
-        Why crash?
-        1. We stop before under the assumption that's the stop zone and crash as we move into the actual stop zone
-        2. We stop after crossing the stop zone but we crash regardless.
+        1. Crash because we stop before the actual stop of the work zone and we move into the actual work zone as a result.
+        2. No crash because the difference between the distances to the work zone is trivial.
+        3. Crash because the difference between the distances to the work zone is non-trivial.
 
-        @param truth:
-        @param perturbed_dist:
-        @return:
+        :param truth: The benign trajecory of the CAV (Pandas DataFrame).
+        :aram perturbed_dist: The perturbed distance to the work zone, in meters (int).
+        :return: The perturbed trajectory.
         """
         stop_comm, stop_idx, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
 
-        # Case 1 and 2
-        if dist_to_WZ - perturbed_dist > 5:
+        if abs(dist_to_WZ - perturbed_dist) > 5:
             return self.eq(truth)
         else:
             return self.simulate_crash(truth, stop_idx)
 
     def dur_wz_stop(self, truth, v_init, perturbed_dur, timestep, duration, seed):
         """
-        Change the duration of the stop.
-        1. If we go over the actual duration, it doesn't really matter perhaps? (Maybe crash)
-        2. Waiting less than the actual duration is crash.
+        Return a perturbed trajectory where the duration of the stop at the work zone is perturbed.
+        We have a few cases of what the perturbed trajectory will look like:
 
+        1. Crash because the perturbed duration of the stop less than the actual duration of the stop.
+        2. The perturbed duration of the stop is greater than the actual duration of the stop and 
+        that may or may not cause a crash so we decide the outcome randomly.
 
-        @param truth:
-        @param v_init:
-        @param perturbed_dur:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param perturbed_dur: The perturbed duration of the stop at the work zone, in seconds (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int). 
+        :param seed: The seed of the beinign trajectory. (int)
+        :return: The perturbed trajectory.
         """
         outcome = random.choice([0, 1])
         stop_comm, stop_idx, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
-        if 0 < dur_of_WZ - perturbed_dur <= 1 or perturbed_dur > dur_of_WZ and outcome == 0:
+        if dur_of_WZ < perturbed_dur or perturbed_dur > dur_of_WZ and outcome == 0:
             return self.simulate_crash(truth, stop_idx)
         else:
             self.v2i_comms[stop_idx] = self.perturb_s_comm(dist_to_WZ, perturbed_dur)
@@ -280,17 +282,19 @@ class Attack:
 
     def stop(self, truth, v_init, perturbed, timestep, duration, seed):
         """
-        Change the distance to and duration of the stop at the work zone.
+        Return a perturbed trajectory where the distance to and duration of the stop at the work zone is perturbed.
+        We have a few cases of what the perturbed trajectory will look like:
 
-        Ultimately, we either crash or have two different trajectories.
+        1. Crash because the perturbed V2I communication is incorrect in every way.
+        2. No crash by chance.
 
         :param truth: The benign trajectory of the CAV (Pandas DataFrame).
-        :param v_init: The initial velocity of the vehicle (int).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
         :param perturbed: The perturbed communications (list).
         :param timestep: The timestep of the benign trajectory (int).
-        :param duration: The duration of the benign trajectory (int).
-        :param seed: The seed of the beinign treajectyory. (int)
-        :return:
+        :param duration: The duration of the benign trajectory, in seconds (int). 
+        :param seed: The seed of the beinign trajectory. (int)
+        :return: The perturbed trajectory.
         """
 
         outcome = random.choice([0, 1])
