@@ -284,13 +284,13 @@ class Attack:
 
         Ultimately, we either crash or have two different trajectories.
 
-        @param truth:
-        @param v_init:
-        @param perturbed:
-        @param timestep:
-        @param duration:
-        @param seed:
-        @return:
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: 
+        :param perturbed:
+        :param timestep:
+        :param duration:
+        :param seed:
+        :return:
         """
 
         outcome = random.choice([0, 1])
@@ -307,9 +307,10 @@ class Attack:
 
     def eq(self, truth):
         """
-        Return a copy of the truth trajectory as the faulty trajectory ended up becoming benign.
-        @param truth:
-        @return: copy of the benign trajectory
+        Return a copy of the truth trajectory as the faulty trajectory ends up becoming benign.
+        
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :return: Copy of the benign trajectory.
         """
 
         return truth.copy()
@@ -318,11 +319,11 @@ class Attack:
 
     def simulate_crash(self, truth, i):
         """
-        Simulate a crash starting at time step i
+        Simulate a crash starting at time step i.
 
-        @param truth:
-        @param i:
-        @return:
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param i: The time step i when the crash occurs (int).
+        :return: A pandas dataframe equal to the truth trajectory up until i when the crash occurs.
         """
 
         faulty = truth.copy()
@@ -335,8 +336,10 @@ class Attack:
 
     def get_random_RS_comm(self):
         """
-        Retrieve a random RS comm alongside its respective index within v2i_comms
-        @return:
+        Retrieve a random rs communication alongside its respective time step when the V2I communication
+        was passed into the vehicle during its trajectory.
+        
+        :return: Tuple containing all 2 values about the random rs communication.
         """
         # Iteratively find an RS comm randomly within the v2i_comms
         rs_comm = "_,_,_,_"
@@ -355,8 +358,10 @@ class Attack:
 
     def get_random_S_comm(self):
         """
-        Retrieve a random S comm alongside its respective index within v2i_comms
-        @return:
+        Retrieve a random s communication alongside its respective time step when the V2I communication
+        was passed into the vehicle during its trajectory.
+        
+        :return: Tuple containing all 2 values about the random s communication.
         """
         # Iteratively find an S comm randomly within the v2i_comms
         # WE ASSUME THERE EXIST ONE S comm within v2i_comms
@@ -376,8 +381,14 @@ class Attack:
 
     def get_random_RS_info(self):
         """
-        Retrieve all necessary information about the RS communication
-        @return:
+        Retrieve all necessary information about the rs communication:
+        1. The V2I rs communication.
+        2. The time step i when the V2I rs communication was passed into the vehicle during its trajectory.
+        3. The distance to the work zone.
+        4. The reduced speed in the work zone.
+        5. The length/distance of the work zone.
+        
+        :return: Tuple containing all 5 values about the rs communication.
         """
         # Get a random RS com randomly within v2i comms
         rs_comm, rs_idx = self.get_random_RS_comm()
@@ -387,8 +398,13 @@ class Attack:
 
     def get_random_S_info(self):
         """
-        Retrieve all necessary information about the S communication
-        @return:
+        Retrieve all necessary information about the s communication:
+        1. The V2I s communication.
+        2. The time step i when the V2I s communication was passed into the vehicle during its trajectory.
+        3. The distance to the work zone.
+        4. The duration of the stop at the work zone.
+        
+        :return: Tuple containing all 4 values about the s communication.
         """
         # Get a random RS com randomly within v2i comms
         stop_comm, stop_idx = self.get_random_S_comm()
@@ -398,21 +414,30 @@ class Attack:
 
     def perturb_rs_comm(self, dist_to_WZ, reduced_speed_of_WZ, len_of_WZ):
         """
-
-        @param dist_to_WZ:
-        @param reduced_speed_of_WZ:
-        @param len_of_WZ:
-        @return: Perturbed V2I RS communication
+        Return the perturbed rs communication given either:
+        1. The perturbed dist_to_WZ, perturbed reduced_speed_of_WZ, and benign len_of_WZ.
+        2. The perturbed dist_to_WZ, benign reduced_speed_of_WZ, and perturbed len_of_WZ.
+        3. The benign dist_to_WZ, perturbed reduced_speed_of_WZ, and perturbed len_of_WZ.
+        4. The perturbed dist_to_WZ, perturbed reduced_speed_of_WZ, and perturbed len_of_WZ.
+        
+        :param dist_to_WZ: The distance to the work zone, in meters (int).
+        :param reduced_speed_of_WZ: The reduced speed in the work zone, in m/s (int).
+        :param len_of_WZ: The length/distance of the work zone, in meters (int).
+        :return: Perturbed V2I RS communication
         """
         perturbed_comm = 'RS,' + str(dist_to_WZ) + ',' + str(reduced_speed_of_WZ) + ',' + str(len_of_WZ)
         return perturbed_comm
 
     def perturb_s_comm(self, dist_to_WZ, dur_of_WZ):
         """
+        Return a perturbed s communication given either:
+        1. The perturbed dist_to_WZ and benign dur_of_WZ
+        2. The benign dist_to_WZ and perturbed dur_of_WZ
+        3. The peturbed dist_to_WZ and perturbed dur_of_WZ
 
-        @param dist_to_WZ:
-        @param dur_of_WZ:
-        @return: Perturbed V2I S communication
+        :param dist_to_WZ: The distance to the work zone, in meters (int).
+        :param dur_of_WZ: The duration of the stop at the work zone, in seconds (int).
+        :return: The perturbed V2I s communication
         """
         perturbed_comm = 'RS,' + str(dist_to_WZ) + ',' + str(dur_of_WZ)
         return perturbed_comm
