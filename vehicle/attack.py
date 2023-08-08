@@ -68,26 +68,28 @@ class Attack:
         elif scenario == 2:
             faulty_traj = self.ignore_rs(benign_traj)
         elif scenario == 3:
-            perturbed_v = input("Input perturbed reduced speed in work zone: ")
+            perturbed_v = int(input("Input perturbed reduced speed in work zone: "))
             faulty_traj = self.swz_rs(benign_traj, v_init, perturbed_v, timestep, duration, seed)
         elif scenario == 4:
-            perturbed_dist = input("Input perturbed distance to work zone: ")
+            perturbed_dist = int(input("Input perturbed distance to work zone: "))
             faulty_traj = self.dwz_rs(benign_traj, v_init, perturbed_dist, timestep, duration, seed)
         elif scenario == 5:
-            perturbed_len = input("Input perturbed length of work zone: ")
+            perturbed_len = int(input("Input perturbed length of work zone: "))
             faulty_traj = self.lwz_rs(benign_traj, v_init, perturbed_len, timestep, duration, seed)
         elif scenario == 6:
             perturbed = input(
                 "Input perturbed reduced speed, distance, and length of work zone as csv in that order: ").split(",")
+            perturbed = list(map(int, perturbed))
             faulty_traj = self.rswz(benign_traj, v_init, perturbed, timestep, duration, seed)
         elif scenario == 7:
-            perturbed_dist = input("Input perturbed distance to work zone: ")
+            perturbed_dist = int(input("Input perturbed distance to work zone: "))
             faulty_traj = self.dwz_stop(benign_traj, perturbed_dist)
         elif scenario == 8:
-            perturbed_dur = input("Input perturbed duration of work zone: ")
+            perturbed_dur = int(input("Input perturbed duration of work zone: "))
             faulty_traj = self.dur_wz_stop(benign_traj, v_init, perturbed_dur, timestep, duration, seed)
         elif scenario == 9:
             perturbed = input("Input perturbed distance and duration of work zone as csv in that order: ").split(",")
+            perturbed = list(map(int, perturbed))
             faulty_traj = self.stop(benign_traj, v_init, perturbed, timestep, duration, seed)
 
         return faulty_traj, benign_traj
