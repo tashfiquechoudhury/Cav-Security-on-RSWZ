@@ -78,7 +78,7 @@ class Vehicle:
             {
                 ran_t_start + increments[i]: v2i_comms[i] for i in range(len(v2i_comms))
             }
-
+        print(v2i)
         while i < ran_t_end:
             if i in v2i:
                 # Read in the V2I communication
@@ -111,8 +111,8 @@ class Vehicle:
                         v[i] = v[i - 1] + tau * a[i]
                         t[i] = t[i - 1] + tau
                         i += 1
-
-                    self.comms.append((v2i[start], start))
+                    end = i
+                    self.comms.append((v2i[start], (start, end)))
 
                 elif comm[0] == 'S':
                     curr_v = v[i - 1]
@@ -137,7 +137,8 @@ class Vehicle:
                         t[i] = t[i - 1] + tau
                         i += 1
 
-                    self.comms.append((v2i[start], start))
+                    end = i
+                    self.comms.append((v2i[start], (start, end)))
             else:
                 if counter % 20 == 0:
                     # 1st condition: is v[i] "far away" from v_max ?
