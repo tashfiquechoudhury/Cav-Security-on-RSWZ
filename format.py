@@ -61,3 +61,29 @@ def plot_trajectory_1D(dataframe):
     plt.title("Velocity of CAV", size=20)
 
     plt.show()
+    
+def plot_trajectory_compare(faulty, benign):
+    """
+    Displays and visualizes the trajectory of the CAV given a Pandas DataFrame.
+
+    :param dataframe:
+    """
+   
+    # Velocity'
+    fig, axes = plt.subplots(figsize=(12.0, 6.0))
+  
+    benign.plot(ax = axes, kind='line', x='time', y='velocity', color='green', label = 'Ground Truth')
+    plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
+    plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    plt.xlabel("Time (s)", size=15)
+    plt.ylabel("Velocity (m/s)", size=15)
+    plt.title("Velocity of CAV", size=20)
+
+    
+    faulty.plot(ax = axes, kind='line', x='time', y='velocity', color='red', label = 'Faulty')
+    plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
+    plt.gca().xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    axes.axvspan(187,197 , alpha=0.2, color ='y', label = 'Distance to WZ')
+    axes.axvspan(197, 278 , alpha=0.2, color ='r', label = 'Length of WZ')
+    plt.legend()
+    plt.show()
