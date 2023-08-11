@@ -1,4 +1,5 @@
 import random
+import format
 from vehicle.vehicle import *
 
 
@@ -46,14 +47,13 @@ class Attack:
     def compare(self, v_init, timestep, duration, seed, scenario=1):
         """
         A function that compares the benign trajectory with a faulty trajectory that was under a specific attack
-        scenario.
+        scenario by displaying and visualizing the differences between both trajectories.
 
         :param v_init: The initial velocity of the vehicle, in m/s (int).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int).
         :param seed: The seed of the benign trajectory (int).
         :param scenario: Which attack scenario to execute (int).
-        :return: A graph highlighting the differences between the benign and faulty trajectory.
         """
         assert scenario in self.attack_panel, "Choose a valid attack mechanism ranging from 0-9"
 
@@ -64,7 +64,7 @@ class Attack:
         if scenario == 0:
             faulty_traj = self.eq(benign_traj)
         elif scenario == 1:
-            faulty_traj = self.ignore_stop(benign_traj)
+            faulty_traj = self.ignore_stop(benign_traj, v_init, timestep, duration, seed)
         elif scenario == 2:
             faulty_traj = self.ignore_rs(benign_traj)
         elif scenario == 3:
@@ -78,7 +78,8 @@ class Attack:
             faulty_traj = self.lwz_rs(benign_traj, v_init, perturbed_len, timestep, duration, seed)
         elif scenario == 6:
             perturbed = input(
-                "Input perturbed reduced speed, distance to, and length of work zone as csv in that order: ").split(",")
+                "Input perturbed distance to, reduced speed of, and length of work zone as csv in that order: ").split(
+                ",")
             perturbed = list(map(int, perturbed))
             faulty_traj = self.rswz(benign_traj, v_init, perturbed, timestep, duration, seed)
         elif scenario == 7:
@@ -88,43 +89,48 @@ class Attack:
             perturbed_dur = int(input("Input perturbed duration of work zone: "))
             faulty_traj = self.dur_wz_stop(benign_traj, v_init, perturbed_dur, timestep, duration, seed)
         elif scenario == 9:
-            perturbed = input("Input perturbed distance to and duration of stop at work zone as csv in that order: ")\
+            perturbed = input("Input perturbed distance to and duration of stop at work zone as csv in that order: ") \
                 .split(",")
             perturbed = list(map(int, perturbed))
             faulty_traj = self.stop(benign_traj, v_init, perturbed, timestep, duration, seed)
 
-        return faulty_traj, benign_traj
-
-        # With both trajectories generated, we will now compare them with graphs!
-        # TODO: Visualize the difference(s) between the two trajectories of faulty and benign and save them.
+        format.plot_trajectory_compare(faulty_traj, benign_traj)
 
     # Attack panel
 
-    def ignore_stop(self, truth):
+    def ignore_stop(self, truth, v_init, timestep, duration, seed):
         """
         Return a perturbed trajectory where a V2I s communication is ignored which ultimately results in a crash.
 
-        :param truth: The benign trajectory of the CAV (Pandas DataFrame).:
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
         :return: The perturbed trajectory.
         """
 
         # Get a random S comm randomly within v2i_comms
-        _, _, window, _, _ = self.get_random_S_info()
+        _, stop_idx, window, _, _ = self.get_random_S_info()
 
-        return self.simulate_crash(truth, window)
+        return self.simulate_crash_s(truth, window, stop_idx, v_init, timestep, duration, seed)
 
-    def ignore_rs(self, truth):
+    def ignore_rs(self, truth, v_init, timestep, duration, seed):
         """
         Return a perturbed trajectory where a V2I rs communication is ignored which ultimately results in a crash.
 
-        :param truth: The benign trajectory of the CAV (Pandas DataFrame).:
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
         :return: The perturbed trajectory.
         """
 
         # Get a random RS comm randomly within v2i_comms
-        _, _, window, _, _, _ = self.get_random_RS_info()
+        _, rs_idx, window, _, _, _ = self.get_random_RS_info()
 
-        return self.simulate_crash(truth, window)
+        return self.simulate_crash_rs(truth, window, rs_idx, v_init, timestep, duration, seed)
 
     def swz_rs(self, truth, v_init, perturbed_v, timestep, duration, seed):
         """
@@ -158,7 +164,7 @@ class Attack:
             if rs_comm.split(",")[2] >= perturbed_v:
                 return self.eq(truth)
             else:
-                return self.simulate_crash(truth, window)
+                return self.simulate_crash_rs(truth, window, rs_idx, v_init, timestep, duration, seed)
 
     def dwz_rs(self, truth, v_init, perturbed_dist, timestep, duration, seed):
         """
@@ -186,7 +192,7 @@ class Attack:
         rs_comm, rs_idx, window, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
 
         if dist_to_WZ <= perturbed_dist or abs(dist_to_WZ - perturbed_dist - len_of_WZ) <= 10 or outcome == 0:
-            return self.simulate_crash(truth, window)
+            return self.simulate_crash_rs(truth, window, rs_idx, v_init, timestep, duration, seed)
         else:
             # No crash but our trajectory is perturbed
             self.v2i_comms[rs_idx] = self.perturb_rs_comm(perturbed_dist, reduced_speed, len_of_WZ)
@@ -206,14 +212,14 @@ class Attack:
         :param perturbed_len: The perturbed distance/length of the work zone (int).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int).
-        :param seed: The seed of the benign trajectory. (int)
+        :param seed: The seed of the benign trajectory (int).
         :return: The perturbed trajectory.
         """
 
         rs_comm, rs_idx, window, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
 
         if len_of_WZ > perturbed_len:
-            return self.simulate_crash(truth, window)
+            return self.simulate_crash_rs(truth, window, rs_idx, v_init, timestep, duration, seed)
         else:
             # No crash but our trajectory is perturbed
             self.v2i_comms[rs_idx] = self.perturb_rs_comm(dist_to_WZ, reduced_speed, perturbed_len)
@@ -233,14 +239,14 @@ class Attack:
         :param perturbed: The perturbed communication (list).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int). 
-        :param seed: The seed of the benign trajectory. (int)
+        :param seed: The seed of the benign trajectory (int).
         :return: The perturbed trajectory.
         """
         outcome = random.choice([0, 1])
         rs_comm, rs_idx, window, dist_to_WZ, reduced_speed, len_of_WZ = self.get_random_RS_info()
 
         if outcome == 0:
-            return self.simulate_crash(truth, window)
+            return self.simulate_crash_rs(truth, window, rs_idx, v_init, timestep, duration, seed)
         else:
             # Unpack perturbed values
             perturbed_dist, perturbed_v, perturbed_len = perturbed
@@ -248,7 +254,7 @@ class Attack:
             faulty = self.traj(v_init, timestep, duration, seed)
             return faulty
 
-    def dwz_stop(self, truth, perturbed_dist):
+    def dwz_stop(self, truth, v_init, perturbed_dist, timestep, duration, seed):
         """
         Return a perturbed trajectory where the distance to the work zone is perturbed. We have a few cases of what
         the perturbed trajectory will look like:
@@ -258,16 +264,21 @@ class Attack:
         2. No crash because the difference between the distances to the work zone is trivial.
         3. Crash because the difference between the distances to the work zone is non-trivial.
 
+
         :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
         :param perturbed_dist: The perturbed distance to the work zone, in meters (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory (int).
         :return: The perturbed trajectory.
         """
-        _, _, window, dist_to_WZ, _ = self.get_random_S_info()
+        _, stop_idx, window, dist_to_WZ, _ = self.get_random_S_info()
 
-        if abs(dist_to_WZ - perturbed_dist) > 5:
+        if 0 < abs(dist_to_WZ - perturbed_dist) < 5:
             return self.eq(truth)
         else:
-            return self.simulate_crash(truth, window)
+            return self.simulate_crash_s(truth, window, stop_idx, v_init, timestep, duration, seed)
 
     def dur_wz_stop(self, truth, v_init, perturbed_dur, timestep, duration, seed):
         """
@@ -283,13 +294,13 @@ class Attack:
         :param perturbed_dur: The perturbed duration of the stop at the work zone, in seconds (int).
         :param timestep: The timestep of the benign trajectory (int).
         :param duration: The duration of the benign trajectory, in seconds (int). 
-        :param seed: The seed of the benign trajectory. (int)
+        :param seed: The seed of the benign trajectory (int).
         :return: The perturbed trajectory.
         """
         outcome = random.choice([0, 1])
         stop_comm, stop_idx, window, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
         if dur_of_WZ < perturbed_dur or perturbed_dur > dur_of_WZ and outcome == 0:
-            return self.simulate_crash(truth, window)
+            return self.simulate_crash_s(truth, window, stop_idx, v_init, timestep, duration, seed)
         else:
             self.v2i_comms[stop_idx] = self.perturb_s_comm(dist_to_WZ, perturbed_dur)
             faulty = self.traj(v_init, timestep, duration, seed)
@@ -316,7 +327,7 @@ class Attack:
         stop_comm, stop_idx, window, dist_to_WZ, dur_of_WZ = self.get_random_S_info()
 
         if outcome == 0:
-            return self.simulate_crash(truth, window)
+            return self.simulate_crash_s(truth, window, stop_idx, v_init, timestep, duration, seed)
         else:
             # Unpack perturbed values
             perturbed_dist, perturbed_dur = perturbed
@@ -336,23 +347,54 @@ class Attack:
 
     # HELPER METHODS
 
-    def simulate_crash(self, truth, window):
+    def simulate_crash_s(self, truth, window, stop_idx, v_init, timestep, duration, seed):
         """
-        Simulate a crash any time step i in between the time step values in window = (start, end). This selection will
-        be random.
+        Simulate a crash any time step i in between the time step values in window = (start, end) because of a faulty s
+        communication. This selection will be random.
 
         :param truth: The benign trajectory of the CAV (Pandas DataFrame).
-        :param window: The start time step of the V2I comm and the end time step he time step i when the crash occurs (tuple).
+        :param window: The start and end time step of the V2I comm and the index where v = 0 (tuple).
+        :param stop_idx: The index i within self.v2i_comms that contains a specific s communication.
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
         :return: A pandas dataframe equal to the truth trajectory up until i when the crash occurs.
         """
-        start, end = window
-        i = random.randint(start, end)
-        faulty = truth.copy()
+        self.v2i_comms.pop(stop_idx)
+        faulty = self.traj(v_init, timestep, duration, seed)
+        start, end, i_when_v_is_0 = window
+        i = random.randint(i_when_v_is_0, end)
+
         faulty.iloc[i:, 2] = 0
         faulty.iloc[i:, 3] = 0
         x_prev = truth.at[i - 1, "position"]
         faulty.iloc[i:, 1] = x_prev
+        return faulty
 
+    def simulate_crash_rs(self, truth, window, rs_idx, v_init, timestep, duration, seed):
+        """
+        Simulate a crash any time step i in between the time step values in window = (start, end) because of a faulty rs
+        communication. This selection will be random.
+
+        :param truth: The benign trajectory of the CAV (Pandas DataFrame).
+        :param window: The start and end time step of the V2I comm and the index where v = 0 (tuple).
+        :param rs_idx: The index i within self.v2i_comms that contains a specific s communication.
+        :param v_init: The initial velocity of the vehicle, in m/s (int).
+        :param timestep: The timestep of the benign trajectory (int).
+        :param duration: The duration of the benign trajectory, in seconds (int).
+        :param seed: The seed of the benign trajectory. (int)
+        :return: A pandas dataframe equal to the truth trajectory up until i when the crash occurs.
+        """
+        self.v2i_comms.pop(rs_idx)
+        faulty = self.traj(v_init, timestep, duration, seed)
+        start, end, i_when_v_is_des_v = window
+        i = random.randint(i_when_v_is_des_v, end)
+
+        faulty.iloc[i:, 2] = 0
+        faulty.iloc[i:, 3] = 0
+        x_prev = truth.at[i - 1, "position"]
+        faulty.iloc[i:, 1] = x_prev
         return faulty
 
     def get_random_RS_comm(self):
@@ -367,8 +409,8 @@ class Attack:
         rs_idx_in_v2i = -1
         window = None
         while rs_comm.split(",")[0] != 'RS':
-            rs_idx = random.choice(np.arange(len(self.v2i_comms)))
-            rs_comm = self.v2i_comms[rs_idx]
+            rs_idx_in_v2i = random.choice(np.arange(len(self.v2i_comms)))
+            rs_comm = self.v2i_comms[rs_idx_in_v2i]
 
         # Find the respective start and end time of this comm within self.vehicle
         for comm in self.vehicle.comms:
@@ -391,8 +433,8 @@ class Attack:
         stop_idx_in_v2i = -1
         window = None
         while stop_comm.split(",")[0] != 'S':
-            stop_idx = random.choice(np.arange(len(self.v2i_comms)))
-            stop_comm = self.v2i_comms[stop_idx]
+            stop_idx_in_v2i = random.choice(np.arange(len(self.v2i_comms)))
+            stop_comm = self.v2i_comms[stop_idx_in_v2i]
 
         # Find the respective index of this comm within self.vehicle
         for comm in self.vehicle.comms:
@@ -406,34 +448,38 @@ class Attack:
         """
         Retrieve all necessary information about the rs communication:
         1. The V2I rs communication.
-        2. The time step i when the V2I rs communication was passed into the vehicle during its trajectory.
-        3. The distance to the work zone.
-        4. The reduced speed in the work zone.
-        5. The length/distance of the work zone.
+        2. The index i of a V2I rs communication in self.v2i_comms
+        3. A tuple of values = (start, end) where start = time step i when the V2I comm was passed into the vehicle
+           during its trajectory and end = time step i when the V2I comm was finished executing.
+        4. The distance to the work zone.
+        5. The reduced speed in the work zone.
+        6. The length/distance of the work zone.
         
-        :return: Tuple containing all 5 values about the rs communication.
+        :return: Tuple containing all 6 values about the rs communication.
         """
         # Get a random RS com randomly within v2i comms
-        rs_comm, rs_idx_in_v2i, rs_idx_in_vehicle = self.get_random_RS_comm()
+        rs_comm, rs_idx_in_v2i, window = self.get_random_RS_comm()
         # Get information from rs_comm
         dist_to_WZ, reduced_speed, len_of_WZ = map(int, rs_comm.split(",")[1:])
-        return rs_comm, rs_idx_in_v2i, rs_idx_in_vehicle, dist_to_WZ, reduced_speed, len_of_WZ
+        return rs_comm, rs_idx_in_v2i, window, dist_to_WZ, reduced_speed, len_of_WZ
 
     def get_random_S_info(self):
         """
         Retrieve all necessary information about the s communication:
         1. The V2I s communication.
-        2. The time step i when the V2I s communication was passed into the vehicle during its trajectory.
-        3. The distance to the work zone.
-        4. The duration of the stop at the work zone.
+        2. The index i of a V2I s communication in self.v2i_comms
+        3. A tuple of values = (start, end) where start = time step i when the V2I comm was passed into the vehicle
+           during its trajectory and end = time step i when the V2I comm was finished executing.
+        4. The distance to the work zone.
+        5. The duration of the stop at the work zone.
         
-        :return: Tuple containing all 4 values about the s communication.
+        :return: Tuple containing all 5 values about the s communication.
         """
         # Get a random RS com randomly within v2i comms
-        stop_comm, stop_idx_in_v2i, stop_idx_in_vehicle = self.get_random_S_comm()
+        stop_comm, stop_idx_in_v2i, window = self.get_random_S_comm()
         # Get information from stop_comm
         dist_to_WZ, dur_of_WZ, = map(int, stop_comm.split(",")[1:])
-        return stop_comm, stop_idx_in_v2i, stop_idx_in_vehicle, dist_to_WZ, dur_of_WZ
+        return stop_comm, stop_idx_in_v2i, window, dist_to_WZ, dur_of_WZ
 
     def perturb_rs_comm(self, dist_to_WZ, reduced_speed_of_WZ, len_of_WZ):
         """
