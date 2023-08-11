@@ -35,7 +35,7 @@ class Vehicle:
         # Clear cache from previous trajectory
         self.prev_action = None
         self.cache = None
-        self.comms = []
+        self.comms = []  # self.comms = [( (v2i[i], [start, end, i where v = 0 or v = rs]))]
 
         # Initialize velocity (v), acceleration (a), position (x), and time (t) arrays,
         # and pseudorandom number generator.
@@ -72,13 +72,17 @@ class Vehicle:
         ran_t_end = int((9 / 10) * len(t)) + 1
         counter = 0
         i = ran_t_start
-        increments = [10, 75]
 
-        v2i = \
-            {
-                ran_t_start + increments[i]: v2i_comms[i] for i in range(len(v2i_comms))
-            }
-        print(v2i)
+        # Lines 76-84 just represent the V2I comms that will be passed in the CAV during its trajectory.
+        increments = [r.randint(50, 150) for _ in range(len(v2i_comms))]
+        if v2i_comms:
+            v2i = \
+                {
+                    ran_t_start + increments[i]: v2i_comms[i] for i in range(len(v2i_comms))
+                }
+        else:
+            v2i = {}
+
         while i < ran_t_end:
             if i in v2i:
                 # Read in the V2I communication
@@ -103,6 +107,8 @@ class Vehicle:
                             t[i] = t[i - 1] + tau
                             i += 1
 
+                    i_when_v_is_des_v = i
+
                     # Whether our curr_v is above or below the RSWZ speed limit, we need to traverse the WZ.
                     des_x = x[i - 1] + dist_of_WZ
                     while x[i - 1] <= des_x:
@@ -112,7 +118,7 @@ class Vehicle:
                         t[i] = t[i - 1] + tau
                         i += 1
                     end = i
-                    self.comms.append((v2i[start], (start, end)))
+                    self.comms.append((v2i[start], (start, end, i_when_v_is_des_v)))
 
                 elif comm[0] == 'S':
                     curr_v = v[i - 1]
@@ -129,6 +135,8 @@ class Vehicle:
                         t[i] = t[i - 1] + tau
                         i += 1
 
+                    i_when_v_is_0 = i
+
                     # Now we iterate over the duration of the stop
                     for _ in range(stop_duration):
                         v[i] = v[i - 1]
@@ -138,7 +146,7 @@ class Vehicle:
                         i += 1
 
                     end = i
-                    self.comms.append((v2i[start], (start, end)))
+                    self.comms.append((v2i[start], (start, end, i_when_v_is_0)))
             else:
                 if counter % 20 == 0:
                     # 1st condition: is v[i] "far away" from v_max ?
@@ -224,8 +232,7 @@ class Vehicle:
                 x[i] = x[i - 1] + tau * v[i - 1] + (0.5 * a[i] * (tau ** 2))
                 v[i] = v[i - 1] + tau * a[i]
                 # If our updated velocity is less than 0, we set it to 0 to represent a stop.
-                if v[i] < 0:
-                    v[i] = 0
+                v[i] = v[i] if v[i] > 0 else 0
                 t[i] = t[i - 1] + tau
 
                 counter += 1
