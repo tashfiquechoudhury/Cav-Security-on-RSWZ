@@ -2,8 +2,7 @@
 This research has been partially supported by National Science Foundation under Grant No. REU-2150136. \
 University of Florida for Secure, Accessible, and Sustainable Transportation\
 
-Cite as:
-\\
+Cite as:\
 @inproceedings{10.1145/3565287.3617980,
 author = {Mendoza, Patrick M. and Choudhury, Tashfique Hasnine and Ray, Sandip},
 title = {Poster: Vehicle-to-Infrastructure Security for Reduced Speed Work Zone},
@@ -21,4 +20,4 @@ keywords = {connected vehicle, work zone, cyber attack, trajectory, security},
 location = {Washington, DC, USA},
 series = {MobiHoc '23}
 }
-\\
+
